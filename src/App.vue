@@ -148,6 +148,40 @@ function extractText(message: Record<string, unknown>): string {
   return ''
 }
 
+/**
+ * DIRTY QUICK FIX: Deduplicate messages received from multiple WebSocket connections.
+ * The Control UI / gateway sometimes delivers the same message to multiple active WS
+ * connections for the same session (zombie connections on reconnect). This causes
+ * duplicate messages in the chat. We track recent message hashes and skip exact dupes.
+ * TODO: Proper fix is to ensure only one WS connection per session is active at a time.
+ */
+const recentMessageHashes = new Map<string, number>() // hash -> timestamp
+const DEDUP_WINDOW_MS = 3000
+
+function dedupeKey(agentId: string, state: string, text: string): string {
+  return `${agentId}:${state}:${text.slice(0, 200)}`
+}
+
+function isDuplicate(agentId: string, state: string, text: string): boolean {
+  // Only dedup final messages — deltas are expected to repeat during streaming
+  if (state !== 'final') return false
+  const key = dedupeKey(agentId, state, text)
+  const now = Date.now()
+  const prev = recentMessageHashes.get(key)
+  if (prev && now - prev < DEDUP_WINDOW_MS) {
+    console.log('[Chat] Dropping duplicate message:', key.slice(0, 80))
+    return true
+  }
+  recentMessageHashes.set(key, now)
+  // Cleanup old entries
+  if (recentMessageHashes.size > 50) {
+    for (const [k, t] of recentMessageHashes) {
+      if (now - t > DEDUP_WINDOW_MS) recentMessageHashes.delete(k)
+    }
+  }
+  return false
+}
+
 function handleChatEvent(payload: Record<string, unknown>) {
   const sessionKey = payload.sessionKey as string || ''
   const state = payload.state as string
@@ -164,6 +198,9 @@ function handleChatEvent(payload: Record<string, unknown>) {
     return
   }
   const agentId = agent.id
+
+  // DIRTY QUICK FIX: skip duplicate final messages from zombie WS connections
+  if (isDuplicate(agentId, state, text)) return
 
   if (state === 'delta') {
     const msgs = chatHistories[agentId]
