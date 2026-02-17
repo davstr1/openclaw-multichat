@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue'
-import AgentTabs from './components/AgentTabs.vue'
 import ChatPanel from './components/ChatPanel.vue'
 import ConnectionSettings from './components/ConnectionSettings.vue'
 import { useGatewayWs } from './composables/useGatewayWs'
@@ -32,6 +31,24 @@ agents.forEach((a) => {
   chatHistories[a.id] = []
   unreadCounts[a.id] = 0
 })
+
+// Sort agents: most recently messaged first
+const sortedAgents = computed(() => {
+  return [...agents].sort((a, b) => {
+    const aLast = chatHistories[a.id]?.[chatHistories[a.id].length - 1]?.timestamp || 0
+    const bLast = chatHistories[b.id]?.[chatHistories[b.id].length - 1]?.timestamp || 0
+    return bLast - aLast
+  })
+})
+
+function lastMessagePreview(agentId: string): string {
+  const msgs = chatHistories[agentId]
+  if (!msgs || msgs.length === 0) return 'No messages yet'
+  const last = msgs[msgs.length - 1]
+  const prefix = last.role === 'user' ? 'You: ' : ''
+  const text = last.content.replace(/\n/g, ' ').slice(0, 60)
+  return prefix + text + (last.content.length > 60 ? '...' : '')
+}
 
 const activeMessages = computed(() => chatHistories[activeAgentId.value] || [])
 const activeAgent = computed(() => agents.find((a) => a.id === activeAgentId.value)!)
@@ -235,39 +252,196 @@ function selectAgent(agentId: string) {
     </template>
 
     <template v-else>
-      <!-- Header -->
-      <div class="flex items-center justify-between px-6 py-3 bg-[var(--surface-secondary)] border-b border-[var(--border-default)]">
-        <h1 class="text-lg font-bold">OpenClaw Multichat</h1>
-        <div class="flex items-center gap-2">
-          <span
-            class="w-2 h-2 rounded-full"
-            :class="isConnected ? 'bg-[var(--success)]' : 'bg-[var(--danger)]'"
+      <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+          <div class="sidebar-header">
+            <span class="logo">OpenClaw</span>
+            <span class="status-dot" :class="isConnected ? 'online' : 'offline'" />
+          </div>
+          <nav class="agent-list">
+            <button
+              v-for="agent in sortedAgents"
+              :key="agent.id"
+              class="agent-item"
+              :class="{ active: agent.id === activeAgentId }"
+              @click="selectAgent(agent.id)"
+            >
+              <div class="agent-avatar" :class="{ active: agent.id === activeAgentId }">
+                <span>{{ agent.name[0] }}</span>
+              </div>
+              <div class="agent-info">
+                <span class="agent-name">{{ agent.name }}</span>
+                <span class="agent-preview">{{ lastMessagePreview(agent.id) }}</span>
+              </div>
+              <div class="agent-meta">
+                <span
+                  v-if="(unreadCounts[agent.id] || 0) > 0"
+                  class="badge"
+                >
+                  {{ unreadCounts[agent.id] }}
+                </span>
+              </div>
+            </button>
+          </nav>
+        </aside>
+
+        <!-- Chat -->
+        <main class="chat-main">
+          <ChatPanel
+            :messages="activeMessages"
+            :agent-name="activeAgent.name"
+            :is-connected="isConnected"
+            :is-streaming="isStreaming"
+            @send="handleSend"
+            @abort="handleAbort"
           />
-          <span class="text-xs text-[var(--text-muted)]">
-            {{ isConnected ? 'Connected' : 'Disconnected' }}
-          </span>
-        </div>
-      </div>
-
-      <!-- Tabs -->
-      <AgentTabs
-        :agents="agents"
-        :active-agent-id="activeAgentId"
-        :unread-counts="unreadCounts"
-        @select="selectAgent"
-      />
-
-      <!-- Chat -->
-      <div class="flex-1 overflow-hidden">
-        <ChatPanel
-          :messages="activeMessages"
-          :agent-name="activeAgent.name"
-          :is-connected="isConnected"
-          :is-streaming="isStreaming"
-          @send="handleSend"
-          @abort="handleAbort"
-        />
+        </main>
       </div>
     </template>
   </div>
 </template>
+
+<style scoped>
+.app-layout {
+  display: flex;
+  height: 100%;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--surface-secondary);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 20px 16px;
+}
+
+.logo {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transition: background 0.3s;
+}
+.status-dot.online {
+  background: var(--success);
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
+}
+.status-dot.offline {
+  background: var(--danger);
+}
+
+.agent-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.agent-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-sans);
+  transition: background 0.15s;
+  width: 100%;
+}
+.agent-item:hover {
+  background: var(--surface-tertiary);
+}
+.agent-item.active {
+  background: var(--surface-tertiary);
+}
+
+.agent-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.agent-avatar.active {
+  background: var(--accent);
+}
+.agent-avatar span {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.agent-avatar.active span {
+  color: var(--accent-text);
+}
+
+.agent-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.agent-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.agent-preview {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agent-meta {
+  flex-shrink: 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-text);
+  line-height: 1;
+}
+
+/* ── Chat main ── */
+.chat-main {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+</style>

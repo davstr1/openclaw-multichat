@@ -13,48 +13,87 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="flex gap-1 px-4 py-2 bg-[var(--surface-secondary)] border-b border-[var(--border-default)]">
+  <nav class="tabs-bar">
     <button
       v-for="agent in props.agents"
       :key="agent.id"
-      class="tab-button"
+      class="tab"
       :class="{ active: agent.id === props.activeAgentId }"
       @click="emit('select', agent.id)"
     >
-      <span v-if="agent.label" class="mr-1 text-xs font-mono opacity-60">{{ agent.label }}</span>
-      <span>{{ agent.name }}</span>
+      <span class="tab-name">{{ agent.name }}</span>
       <span
         v-if="(unreadCounts[agent.id] || 0) > 0"
-        class="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-[var(--accent)] text-[var(--accent-text)]"
+        class="badge"
       >
         {{ unreadCounts[agent.id] }}
       </span>
     </button>
-  </div>
+  </nav>
 </template>
 
 <style scoped>
-.tab-button {
+.tabs-bar {
+  display: flex;
+  gap: 4px;
+  padding: 8px 24px;
+  justify-content: center;
+  background: var(--surface-primary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tab {
+  position: relative;
   display: flex;
   align-items: center;
-  padding: 8px 16px;
-  border-radius: var(--radius-button);
+  gap: 8px;
+  padding: 8px 20px;
+  border: none;
+  border-radius: var(--radius-pill);
   background: transparent;
-  color: var(--text-secondary);
-  border: 1px solid transparent;
+  color: var(--text-muted);
   cursor: pointer;
-  font-size: 14px;
-  transition: all 0.15s ease;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  letter-spacing: 0.01em;
+  transition: color 0.2s, background 0.2s;
 }
 
-.tab-button:hover {
-  background: var(--surface-tertiary);
-  color: var(--text-primary);
+.tab:hover {
+  color: var(--text-secondary);
+  background: var(--surface-secondary);
 }
 
-.tab-button.active {
-  background: var(--surface-tertiary);
+.tab.active {
   color: var(--text-primary);
-  border-color: var(--border-strong);
+  background: var(--surface-tertiary);
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-text);
+  line-height: 1;
 }
 </style>

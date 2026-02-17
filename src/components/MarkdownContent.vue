@@ -109,18 +109,17 @@ const html = computed(() => {
 }
 
 .markdown-body code {
-  background: var(--surface-tertiary);
-  border: 1px solid var(--border-subtle);
-  padding: 0 8px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 6px;
   border-radius: 4px;
-  font-size: 13px;
-  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12.5px;
+  font-family: var(--font-mono);
 }
 
 .markdown-body pre {
   background: var(--surface-primary);
-  padding: 16px;
-  border-radius: 8px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
   overflow-x: auto;
   margin: 8px 0;
@@ -128,24 +127,20 @@ const html = computed(() => {
 .markdown-body pre code {
   background: none;
   padding: 0;
-  font-size: 13px;
+  font-size: 12.5px;
+  line-height: 1.5;
 }
 
 .markdown-body strong {
   font-weight: 600;
 }
 
-.markdown-body em {
-  font-style: italic;
-}
-
 .markdown-body ul, .markdown-body ol {
   margin: 4px 0;
-  padding-left: 24px;
+  padding-left: 20px;
 }
-
 .markdown-body li {
-  margin: 4px 0;
+  margin: 2px 0;
 }
 
 .markdown-body a {
@@ -157,80 +152,87 @@ const html = computed(() => {
 }
 
 .markdown-body blockquote {
-  border-left: 3px solid var(--border-strong);
-  padding-left: 16px;
+  border-left: 2px solid var(--accent);
+  padding-left: 12px;
   margin: 8px 0;
   color: var(--text-secondary);
 }
 
 .markdown-body h1, .markdown-body h2, .markdown-body h3 {
-  margin: 8px 0 4px;
+  margin: 12px 0 4px;
   font-weight: 600;
 }
-.markdown-body h1 { font-size: 18px; }
-.markdown-body h2 { font-size: 16px; }
-.markdown-body h3 { font-size: 15px; }
+.markdown-body h1 { font-size: 17px; }
+.markdown-body h2 { font-size: 15px; }
+.markdown-body h3 { font-size: 14px; }
 
 .markdown-body hr {
   border: none;
-  border-top: 1px solid var(--border-default);
-  margin: 16px 0;
+  border-top: 1px solid var(--border-subtle);
+  margin: 12px 0;
 }
 
 .markdown-body table {
   border-collapse: collapse;
   width: 100%;
   margin: 8px 0;
-}
-.markdown-body th, .markdown-body td {
-  border: 1px solid var(--border-default);
-  padding: 8px 16px;
-  text-align: left;
   font-size: 13px;
 }
+.markdown-body th, .markdown-body td {
+  border: 1px solid var(--border-subtle);
+  padding: 6px 12px;
+  text-align: left;
+}
 .markdown-body th {
-  background: var(--surface-secondary);
+  background: rgba(255, 255, 255, 0.04);
   font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
 }
 
 .markdown-body .file-path {
-  background: var(--surface-tertiary);
-  padding: 0 8px;
+  display: inline;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 8px;
   border-radius: 4px;
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 13px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
   color: var(--accent-hover);
   cursor: pointer;
   transition: background 0.15s;
 }
 .markdown-body .file-path:hover {
-  background: var(--surface-tertiary);
+  background: rgba(255, 255, 255, 0.1);
 }
 .markdown-body .file-path.opening {
-  opacity: 0.6;
-}
-.markdown-body .file-path.opened {
-  background: var(--surface-secondary);
+  opacity: 0.5;
 }
 .markdown-body .file-path.opened::after {
-  content: ' ✓';
+  content: ' done';
   color: var(--success);
   font-size: 11px;
-}
-.markdown-body .file-path.error {
-  background: var(--surface-secondary);
+  font-family: var(--font-sans);
 }
 .markdown-body .file-path.error::after {
-  content: ' ✗';
+  content: ' failed';
   color: var(--danger);
   font-size: 11px;
+  font-family: var(--font-sans);
 }
 
-/* User messages: lighter code blocks */
-.message-bubble.user .markdown-body code {
-  background: var(--surface-tertiary);
+/* User bubble overrides */
+.bubble.user .markdown-body code {
+  background: rgba(255, 255, 255, 0.15);
 }
-.message-bubble.user .markdown-body pre {
-  background: var(--surface-primary);
+.bubble.user .markdown-body pre {
+  background: rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.bubble.user .markdown-body a {
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.3);
 }
 </style>

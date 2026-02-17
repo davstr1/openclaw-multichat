@@ -1,43 +1,11 @@
 @import "tailwindcss";
+@import "@nexum/ui/tokens.css";
 
-:root {
-  --surface-primary: #09090b;
-  --surface-secondary: #111113;
-  --surface-tertiary: #1a1a1c;
-  --text-primary: #fafafa;
-  --text-secondary: #a1a1aa;
-  --text-muted: #52525b;
-  --border-default: rgba(255, 255, 255, 0.10);
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.20);
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --radius-card: 14px;
-  --radius-button: 10px;
-  --radius-input: 8px;
-  --radius-pill: 9999px;
-  --shadow-card: 0px 1px 0px 0px rgba(255, 255, 255, 0.10) inset, 0px 30px 50px rgba(0, 0, 0, 0.40);
-}
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  background: var(--surface-primary);
-  color: var(--text-primary);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+html, body, #app {
   height: 100vh;
   overflow: hidden;
 }
 
-#app {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
+[data-theme] {
+  color-scheme: dark;
 }

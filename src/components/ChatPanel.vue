@@ -17,12 +17,15 @@ const emit = defineEmits<{
 
 const input = ref('')
 const messagesContainer = ref<HTMLElement>()
+const inputEl = ref<HTMLTextAreaElement>()
 
 function handleSend() {
   const text = input.value.trim()
   if (!text) return
   emit('send', text)
   input.value = ''
+  // Reset textarea height
+  if (inputEl.value) inputEl.value.style.height = 'auto'
 }
 
 function handleKeydown(e: KeyboardEvent) {
@@ -30,6 +33,12 @@ function handleKeydown(e: KeyboardEvent) {
     e.preventDefault()
     handleSend()
   }
+}
+
+function autoResize(e: Event) {
+  const el = e.target as HTMLTextAreaElement
+  el.style.height = 'auto'
+  el.style.height = Math.min(el.scrollHeight, 160) + 'px'
 }
 
 function scrollToBottom() {
@@ -46,149 +55,273 @@ onMounted(scrollToBottom)
 </script>
 
 <template>
-  <div class="flex flex-col h-full">
+  <div class="chat-layout">
     <!-- Messages -->
-    <div
-      ref="messagesContainer"
-      class="flex-1 overflow-y-auto px-6 py-4 space-y-4"
-    >
-      <div v-if="messages.length === 0" class="flex items-center justify-center h-full">
-        <p class="text-[var(--text-muted)]">Start a conversation with {{ agentName }}</p>
+    <div ref="messagesContainer" class="messages-scroll">
+      <div v-if="messages.length === 0" class="empty-state">
+        <div class="empty-state-inner">
+          <p class="empty-label">{{ agentName }}</p>
+          <p class="empty-hint">Start a conversation</p>
+        </div>
       </div>
 
-      <div
-        v-for="msg in messages"
-        :key="msg.id"
-        class="message"
-        :class="msg.role"
-      >
-        <div class="message-bubble" :class="msg.role">
-          <MarkdownContent :content="msg.content" />
-          <div v-if="msg.isStreaming" class="streaming-indicator">
-            <span class="dot" /><span class="dot" /><span class="dot" />
+      <div class="messages-list">
+        <div
+          v-for="msg in messages"
+          :key="msg.id"
+          class="message-row"
+          :class="msg.role"
+        >
+          <!-- Agent avatar for assistant messages -->
+          <div v-if="msg.role === 'assistant'" class="avatar">
+            <span class="avatar-letter">{{ agentName[0] }}</span>
+          </div>
+
+          <div class="bubble" :class="msg.role">
+            <MarkdownContent :content="msg.content" />
+            <div v-if="msg.isStreaming" class="streaming-dots">
+              <span /><span /><span />
+            </div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Input -->
-    <div class="px-6 py-4 border-t border-[var(--border-default)] bg-[var(--surface-secondary)]">
-      <div class="flex gap-2">
+    <div class="input-area">
+      <div class="input-container">
         <textarea
+          ref="inputEl"
           v-model="input"
           class="chat-input"
           :placeholder="isConnected ? `Message ${agentName}...` : 'Disconnected'"
           :disabled="!isConnected"
           rows="1"
           @keydown="handleKeydown"
+          @input="autoResize"
         />
-        <button
-          v-if="isStreaming"
-          class="send-button stop"
-          @click="emit('abort')"
-        >
-          Stop
-        </button>
-        <button
-          v-else
-          class="send-button"
-          :disabled="!input.trim() || !isConnected"
-          @click="handleSend"
-        >
-          Send
-        </button>
+        <div class="input-actions">
+          <button
+            v-if="isStreaming"
+            class="btn-stop"
+            @click="emit('abort')"
+          >
+            Stop
+          </button>
+          <button
+            v-else
+            class="btn-send"
+            :disabled="!input.trim() || !isConnected"
+            @click="handleSend"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.message {
+.chat-layout {
   display: flex;
-}
-.message.user {
-  justify-content: flex-end;
-}
-.message.assistant {
-  justify-content: flex-start;
+  flex-direction: column;
+  height: 100%;
 }
 
-.message-bubble {
-  max-width: 75%;
-  padding: 16px;
-  border-radius: var(--radius-card);
-  font-size: 14px;
-  line-height: 1.5;
+.messages-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 0;
 }
-.message-bubble.user {
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+.empty-state-inner {
+  text-align: center;
+}
+.empty-label {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.empty-hint {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.messages-list {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.message-row {
+  display: flex;
+  gap: 12px;
+  animation: fadeIn 0.2s ease;
+}
+.message-row.user {
+  justify-content: flex-end;
+}
+.message-row.assistant {
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+.avatar {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+.avatar-letter {
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.bubble {
+  max-width: 72%;
+  padding: 12px 16px;
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.bubble.user {
   background: var(--accent);
   color: var(--accent-text);
-  border-bottom-right-radius: 4px;
+  border-bottom-right-radius: 6px;
 }
-.message-bubble.assistant {
-  background: var(--surface-tertiary);
+.bubble.assistant {
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
   color: var(--text-primary);
-  border-bottom-left-radius: 4px;
+  border-bottom-left-radius: 6px;
+}
+
+/* Input area */
+.input-area {
+  padding: 16px 24px 24px;
+}
+
+.input-container {
+  max-width: 800px;
+  margin: 0 auto;
+  position: relative;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 20px;
+  transition: border-color 0.2s;
+}
+.input-container:focus-within {
+  border-color: var(--accent);
 }
 
 .chat-input {
-  flex: 1;
-  background: var(--surface-primary);
+  width: 100%;
+  background: transparent;
   color: var(--text-primary);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-input);
-  padding: 8px 16px;
+  border: none;
+  padding: 14px 56px 14px 20px;
   font-size: 14px;
   resize: none;
   outline: none;
-  font-family: inherit;
+  font-family: var(--font-sans);
+  line-height: 1.5;
 }
-.chat-input:focus {
-  border-color: var(--accent);
+.chat-input::placeholder {
+  color: var(--text-muted);
 }
 .chat-input:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
-.send-button {
-  padding: 8px 16px;
+.input-actions {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  gap: 4px;
+}
+
+.btn-send {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--accent);
   color: var(--accent-text);
   border: none;
-  border-radius: var(--radius-button);
+  border-radius: var(--radius-pill);
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background 0.15s;
+  transition: background 0.15s, opacity 0.15s;
 }
-.send-button:hover:not(:disabled) {
+.btn-send:hover:not(:disabled) {
   background: var(--accent-hover);
 }
-.send-button:disabled {
-  opacity: 0.4;
+.btn-send:disabled {
+  opacity: 0.25;
   cursor: not-allowed;
 }
-.send-button.stop {
+
+.btn-stop {
+  padding: 6px 14px;
   background: var(--danger);
+  color: white;
+  border: none;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  transition: opacity 0.15s;
+}
+.btn-stop:hover {
+  opacity: 0.9;
 }
 
-.streaming-indicator {
+/* Streaming dots */
+.streaming-dots {
   display: flex;
   gap: 4px;
-  margin-top: 4px;
+  margin-top: 8px;
 }
-.dot {
-  width: 6px;
-  height: 6px;
+.streaming-dots span {
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--text-muted);
   animation: pulse 1.4s infinite ease-in-out;
 }
-.dot:nth-child(2) { animation-delay: 0.2s; }
-.dot:nth-child(3) { animation-delay: 0.4s; }
+.streaming-dots span:nth-child(2) { animation-delay: 0.2s; }
+.streaming-dots span:nth-child(3) { animation-delay: 0.4s; }
 
 @keyframes pulse {
   0%, 80%, 100% { opacity: 0.3; }
   40% { opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>

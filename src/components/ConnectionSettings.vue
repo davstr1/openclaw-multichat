@@ -15,7 +15,6 @@ const token = ref(localStorage.getItem('oc-gateway-token') || '')
 const showToken = ref(false)
 
 function handleConnect() {
-  console.log('[ConnectionSettings] handleConnect called', url.value, token.value ? '(token set)' : '(no token)')
   localStorage.setItem('oc-gateway-url', url.value)
   localStorage.setItem('oc-gateway-token', token.value)
   emit('connect', url.value, token.value)
@@ -23,52 +22,47 @@ function handleConnect() {
 </script>
 
 <template>
-  <div class="flex items-center justify-center h-full">
-    <div class="settings-card">
-      <h2 class="text-xl font-bold mb-6">Connect to Gateway</h2>
+  <div class="connect-page">
+    <div class="connect-card">
+      <div class="card-header">
+        <h1 class="title">OpenClaw</h1>
+        <p class="subtitle">Connect to your gateway</p>
+      </div>
 
       <!-- Error -->
-      <div v-if="props.error" class="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 text-sm text-danger">
+      <div v-if="props.error" class="alert alert-error">
         {{ props.error }}
       </div>
 
-      <!-- Connecting -->
-      <div v-if="props.connecting" class="mb-4 p-3 rounded-lg bg-info/10 border border-info/30 text-sm text-info">
-        Connecting...
-      </div>
-
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm text-[var(--text-secondary)] mb-1">Gateway URL</label>
+      <div class="form">
+        <div class="field">
+          <label class="label">Gateway URL</label>
           <input
             v-model="url"
             type="text"
-            class="settings-input"
+            class="input"
             placeholder="ws://127.0.0.1:18789"
           >
         </div>
 
-        <div>
-          <label class="block text-sm text-[var(--text-secondary)] mb-1">Token</label>
-          <div class="relative">
+        <div class="field">
+          <label class="label">Token</label>
+          <div class="input-wrap">
             <input
               v-model="token"
               :type="showToken ? 'text' : 'password'"
-              class="settings-input pr-16"
+              class="input"
               placeholder="Gateway auth token"
+              @keydown.enter="handleConnect"
             >
-            <button
-              class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-              @click="showToken = !showToken"
-            >
+            <button class="toggle-vis" @click="showToken = !showToken">
               {{ showToken ? 'Hide' : 'Show' }}
             </button>
           </div>
         </div>
 
         <button
-          class="connect-button"
-          :class="{ disabled: !url || !token || props.connecting }"
+          class="btn-connect"
           :disabled="!url || !token || props.connecting"
           @click="handleConnect"
         >
@@ -80,47 +74,132 @@ function handleConnect() {
 </template>
 
 <style scoped>
-.settings-card {
-  background: var(--surface-secondary);
-  padding: 32px;
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
-  width: 400px;
-  max-width: 90vw;
+.connect-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background: var(--surface-primary);
 }
 
-.settings-input {
+.connect-card {
+  width: 380px;
+  max-width: 90vw;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-container);
+  padding: 40px 32px 32px;
+  box-shadow: var(--shadow-card);
+}
+
+.card-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+.subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.alert {
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  margin-bottom: 24px;
+}
+.alert-error {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: var(--danger);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.input {
   width: 100%;
   background: var(--surface-primary);
   color: var(--text-primary);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-input);
-  padding: 8px 16px;
+  padding: 10px 16px;
   font-size: 14px;
   outline: none;
-  font-family: inherit;
+  font-family: var(--font-sans);
+  transition: border-color 0.2s;
 }
-.settings-input:focus {
+.input:focus {
   border-color: var(--accent);
 }
+.input::placeholder {
+  color: var(--text-muted);
+}
 
-.connect-button {
+.input-wrap {
+  position: relative;
+}
+.input-wrap .input {
+  padding-right: 56px;
+}
+.toggle-vis {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: color 0.15s;
+}
+.toggle-vis:hover {
+  color: var(--text-secondary);
+}
+
+.btn-connect {
   width: 100%;
-  padding: 8px;
+  padding: 12px;
   background: var(--accent);
-  color: white;
+  color: var(--accent-text);
   border: none;
   border-radius: var(--radius-button);
   font-weight: 600;
   font-size: 14px;
+  font-family: var(--font-sans);
   cursor: pointer;
   transition: background 0.15s, opacity 0.15s;
+  margin-top: 4px;
 }
-.connect-button:hover:not(:disabled) {
+.btn-connect:hover:not(:disabled) {
   background: var(--accent-hover);
 }
-.connect-button.disabled {
-  opacity: 0.35;
+.btn-connect:disabled {
+  opacity: 0.3;
   cursor: not-allowed;
 }
 </style>
