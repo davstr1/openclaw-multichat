@@ -224,7 +224,14 @@ export function useGatewayWs(options: GatewayWsOptions) {
       idempotencyKey: `mc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     }
     if (attachments && attachments.length > 0) {
-      params.attachments = attachments
+      // Gateway expects { type: "image", mimeType, content } where content is raw base64 (no data: prefix)
+      params.attachments = attachments.map(a => {
+        const match = a.dataUrl.match(/^data:([^;]+);base64,(.+)$/)
+        if (match) {
+          return { type: 'image', mimeType: match[1], content: match[2] }
+        }
+        return { type: 'image', mimeType: a.mimeType, content: a.dataUrl }
+      })
     }
     return rpc('chat.send', params)
   }
