@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import ChatPanel from './components/ChatPanel.vue'
 import ConnectionSettings from './components/ConnectionSettings.vue'
 import { useGatewayWs } from './composables/useGatewayWs'
@@ -487,6 +487,22 @@ function handleAbort() {
 function selectAgent(agentId: string) {
   activeAgentId.value = agentId
 }
+
+// Persist active agent to localStorage
+watch(activeAgentId, (id) => {
+  localStorage.setItem('oc-active-agent', id)
+})
+
+// Auto-connect on mount if we have saved credentials
+onMounted(() => {
+  const savedUrl = localStorage.getItem('oc-gateway-url')
+  const savedToken = localStorage.getItem('oc-gateway-token')
+  const savedAgent = localStorage.getItem('oc-active-agent')
+  if (savedAgent) activeAgentId.value = savedAgent
+  if (savedUrl && savedToken) {
+    handleConnect(savedUrl, savedToken)
+  }
+})
 </script>
 
 <template>
