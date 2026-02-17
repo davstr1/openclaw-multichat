@@ -109,16 +109,16 @@ const html = computed(() => {
 }
 
 .markdown-body code {
-  background: rgba(255, 255, 255, 0.08);
-  padding: 2px 6px;
+  background: var(--surface-tertiary);
+  padding: 0 8px;
   border-radius: 4px;
   font-size: 13px;
   font-family: 'SF Mono', 'Fira Code', monospace;
 }
 
 .markdown-body pre {
-  background: rgba(0, 0, 0, 0.3);
-  padding: 12px 16px;
+  background: var(--surface-primary);
+  padding: 16px;
   border-radius: 8px;
   overflow-x: auto;
   margin: 8px 0;
@@ -139,11 +139,11 @@ const html = computed(() => {
 
 .markdown-body ul, .markdown-body ol {
   margin: 4px 0;
-  padding-left: 20px;
+  padding-left: 24px;
 }
 
 .markdown-body li {
-  margin: 2px 0;
+  margin: 4px 0;
 }
 
 .markdown-body a {
@@ -156,7 +156,7 @@ const html = computed(() => {
 
 .markdown-body blockquote {
   border-left: 3px solid var(--border-strong);
-  padding-left: 12px;
+  padding-left: 16px;
   margin: 8px 0;
   color: var(--text-secondary);
 }
@@ -172,7 +172,7 @@ const html = computed(() => {
 .markdown-body hr {
   border: none;
   border-top: 1px solid var(--border-default);
-  margin: 12px 0;
+  margin: 16px 0;
 }
 
 .markdown-body table {
@@ -182,18 +182,18 @@ const html = computed(() => {
 }
 .markdown-body th, .markdown-body td {
   border: 1px solid var(--border-default);
-  padding: 6px 10px;
+  padding: 8px 16px;
   text-align: left;
   font-size: 13px;
 }
 .markdown-body th {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-secondary);
   font-weight: 600;
 }
 
 .markdown-body .file-path {
-  background: rgba(255, 255, 255, 0.06);
-  padding: 1px 5px;
+  background: var(--surface-tertiary);
+  padding: 0 8px;
   border-radius: 4px;
   font-family: 'SF Mono', 'Fira Code', monospace;
   font-size: 13px;
@@ -202,13 +202,13 @@ const html = computed(() => {
   transition: background 0.15s;
 }
 .markdown-body .file-path:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--surface-tertiary);
 }
 .markdown-body .file-path.opening {
   opacity: 0.6;
 }
 .markdown-body .file-path.opened {
-  background: rgba(34, 197, 94, 0.15);
+  background: var(--surface-secondary);
 }
 .markdown-body .file-path.opened::after {
   content: ' ✓';
@@ -216,7 +216,7 @@ const html = computed(() => {
   font-size: 11px;
 }
 .markdown-body .file-path.error {
-  background: rgba(239, 68, 68, 0.15);
+  background: var(--surface-secondary);
 }
 .markdown-body .file-path.error::after {
   content: ' ✗';
@@ -226,9 +226,9 @@ const html = computed(() => {
 
 /* User messages: lighter code blocks */
 .message-bubble.user .markdown-body code {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--surface-tertiary);
 }
 .message-bubble.user .markdown-body pre {
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--surface-primary);
 }
 </style>

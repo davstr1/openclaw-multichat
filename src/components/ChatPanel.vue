@@ -115,7 +115,7 @@ onMounted(scrollToBottom)
 
 .message-bubble {
   max-width: 75%;
-  padding: 12px 16px;
+  padding: 16px;
   border-radius: var(--radius-card);
   font-size: 14px;
   line-height: 1.5;
@@ -137,7 +137,7 @@ onMounted(scrollToBottom)
   color: var(--text-primary);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-input);
-  padding: 8px 12px;
+  padding: 8px 16px;
   font-size: 14px;
   resize: none;
   outline: none;

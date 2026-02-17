@@ -28,12 +28,12 @@ function handleConnect() {
       <h2 class="text-xl font-bold mb-6">Connect to Gateway</h2>
 
       <!-- Error -->
-      <div v-if="props.error" class="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-400">
+      <div v-if="props.error" class="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 text-sm text-danger">
         {{ props.error }}
       </div>
 
       <!-- Connecting -->
-      <div v-if="props.connecting" class="mb-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-sm text-blue-400">
+      <div v-if="props.connecting" class="mb-4 p-3 rounded-lg bg-info/10 border border-info/30 text-sm text-info">
         Connecting...
       </div>
 
@@ -95,7 +95,7 @@ function handleConnect() {
   color: var(--text-primary);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-input);
-  padding: 8px 12px;
+  padding: 8px 16px;
   font-size: 14px;
   outline: none;
   font-family: inherit;
@@ -106,7 +106,7 @@ function handleConnect() {
 
 .connect-button {
   width: 100%;
-  padding: 10px;
+  padding: 8px;
   background: var(--accent);
   color: white;
   border: none;

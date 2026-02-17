@@ -8,10 +8,10 @@ import { useNotifications } from './composables/useNotifications'
 import type { Agent, ChatMessage } from './types'
 
 const agents: Agent[] = [
-  { id: 'main', name: 'Kai-1', emoji: '🧠' },
-  { id: 'kai-2', name: 'Kai-2', emoji: '⚡' },
-  { id: 'kai-3', name: 'Kai-3', emoji: '🔥' },
-  { id: 'kai-4', name: 'Kai-4', emoji: '🌊' },
+  { id: 'main', name: 'Kai-1', label: 'K1' },
+  { id: 'kai-2', name: 'Kai-2', label: 'K2' },
+  { id: 'kai-3', name: 'Kai-3', label: 'K3' },
+  { id: 'kai-4', name: 'Kai-4', label: 'K4' },
 ]
 
 const connected = ref(false)
@@ -110,7 +110,7 @@ function handleChatEvent(payload: Record<string, unknown>) {
     if (agentId !== activeAgentId.value) {
       unreadCounts[agentId] = (unreadCounts[agentId] || 0) + 1
       notifications.notify(
-        `${agent.emoji || ''} ${agent.name}`,
+        `${agent.label || ''} ${agent.name}`,
         (text || last?.content || '').slice(0, 100) || 'New message'
       )
     }
