@@ -169,13 +169,16 @@ function handleChatEvent(payload: Record<string, unknown>) {
     const msgs = chatHistories[agentId]
     const last = msgs[msgs.length - 1]
     lastActivity[agentId] = Date.now()
+    // Suppress tool result JSON during streaming — final handler will display it properly
+    const displayText = isToolResultJson(text) ? '' : text
     if (last?.isStreaming && last.role === 'assistant') {
-      last.content = text
+      last.content = displayText
     } else {
+      if (!displayText) return // Don't create a streaming placeholder for tool result JSON
       msgs.push({
         id: `stream_${agentId}_${Date.now()}`,
         role: 'assistant',
-        content: text,
+        content: displayText,
         timestamp: Date.now(),
         agentId,
         isStreaming: true,
