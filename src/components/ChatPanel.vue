@@ -15,6 +15,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'send', payload: { text: string; attachments?: Array<{ dataUrl: string; mimeType: string }> }): void
   (e: 'abort'): void
+  (e: 'newSession'): void
 }>()
 
 const input = ref('')
@@ -154,6 +155,16 @@ onMounted(scrollToBottom)
           @paste="handlePaste"
         />
         <div class="input-actions">
+          <button
+            class="btn-new-session"
+            title="New session"
+            :disabled="isStreaming"
+            @click="emit('newSession')"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
           <button
             v-if="isStreaming"
             class="btn-stop"
@@ -414,6 +425,28 @@ onMounted(scrollToBottom)
   background: var(--accent-hover);
 }
 .btn-send:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.btn-new-session {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.btn-new-session:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+.btn-new-session:disabled {
   opacity: 0.25;
   cursor: not-allowed;
 }

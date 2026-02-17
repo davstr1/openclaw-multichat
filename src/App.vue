@@ -549,6 +549,18 @@ function handleAbort() {
   gateway?.chatAbort(sk, runId)
 }
 
+function handleNewSession() {
+  // The gateway treats "/new" as a command to reset the session context.
+  // Same mechanism as the native Control UI's "New Session" button.
+  const agentId = activeAgentId.value
+  const sk = sessionKeyFor(agentId)
+  gateway?.chatSend(sk, '/new')
+  // Clear local state for this agent
+  chatHistories[agentId] = []
+  toolCalls[agentId] = {}
+  activeRunIds[agentId] = null
+}
+
 function selectAgent(agentId: string) {
   activeAgentId.value = agentId
 }
@@ -625,6 +637,7 @@ onMounted(() => {
             :is-streaming="isStreaming"
             @send="handleSend"
             @abort="handleAbort"
+            @new-session="handleNewSession"
           />
         </main>
       </div>
