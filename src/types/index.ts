@@ -12,6 +12,7 @@ export interface ChatMessage {
   timestamp: number
   agentId: string
   isStreaming?: boolean
+  attachments?: string[]
 }
 
 export interface ToolCall {

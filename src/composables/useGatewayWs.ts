@@ -216,13 +216,17 @@ export function useGatewayWs(options: GatewayWsOptions) {
     return result as Record<string, unknown>
   }
 
-  function chatSend(sessionKey: string, message: string): Promise<unknown> {
-    return rpc('chat.send', {
+  function chatSend(sessionKey: string, message: string, attachments?: Array<{ dataUrl: string; mimeType: string }>): Promise<unknown> {
+    const params: Record<string, unknown> = {
       sessionKey,
       message,
       deliver: false,
       idempotencyKey: `mc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    })
+    }
+    if (attachments && attachments.length > 0) {
+      params.attachments = attachments
+    }
+    return rpc('chat.send', params)
   }
 
   function chatAbort(sessionKey: string) {

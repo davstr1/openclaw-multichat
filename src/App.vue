@@ -289,21 +289,24 @@ async function loadAllHistories() {
   }
 }
 
-function handleSend(text: string) {
+function handleSend(payload: { text: string; attachments?: Array<{ dataUrl: string; mimeType: string }> }) {
   const agentId = activeAgentId.value
+  const { text, attachments } = payload
 
   // Add user message locally
   chatHistories[agentId].push({
     id: `user_${Date.now()}`,
     role: 'user',
-    content: text,
+    visualRole: 'user',
+    content: text || (attachments?.length ? '[image]' : ''),
     timestamp: Date.now(),
     agentId,
+    attachments: attachments?.map(a => a.dataUrl),
   })
 
   // Send via WS
   const sk = sessionKeyFor(agentId)
-  gateway?.chatSend(sk, text)
+  gateway?.chatSend(sk, text, attachments)
 }
 
 function handleAbort() {

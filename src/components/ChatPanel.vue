@@ -13,21 +13,50 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'send', text: string): void
+  (e: 'send', payload: { text: string; attachments?: Array<{ dataUrl: string; mimeType: string }> }): void
   (e: 'abort'): void
 }>()
 
 const input = ref('')
+const attachments = ref<Array<{ id: string; dataUrl: string; mimeType: string }>>([])
 const messagesContainer = ref<HTMLElement>()
 const inputEl = ref<HTMLTextAreaElement>()
 
 function handleSend() {
   const text = input.value.trim()
-  if (!text) return
-  emit('send', text)
+  const atts = attachments.value.length > 0
+    ? attachments.value.map(a => ({ dataUrl: a.dataUrl, mimeType: a.mimeType }))
+    : undefined
+  if (!text && !atts) return
+  emit('send', { text, attachments: atts })
   input.value = ''
-  // Reset textarea height
+  attachments.value = []
   if (inputEl.value) inputEl.value.style.height = 'auto'
+}
+
+function handlePaste(e: ClipboardEvent) {
+  const items = e.clipboardData?.items
+  if (!items) return
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault()
+      const file = item.getAsFile()
+      if (!file) continue
+      const reader = new FileReader()
+      reader.onload = () => {
+        attachments.value.push({
+          id: `att_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          dataUrl: reader.result as string,
+          mimeType: file.type,
+        })
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+}
+
+function removeAttachment(id: string) {
+  attachments.value = attachments.value.filter(a => a.id !== id)
 }
 
 function handleKeydown(e: KeyboardEvent) {
@@ -89,7 +118,10 @@ onMounted(scrollToBottom)
             </div>
 
             <div class="bubble" :class="entry.data.role">
-              <MarkdownContent :content="entry.data.content" />
+              <div v-if="entry.data.attachments?.length" class="bubble-attachments">
+                <img v-for="(src, idx) in entry.data.attachments" :key="idx" :src="src" class="bubble-image" alt="attachment" />
+              </div>
+              <MarkdownContent v-if="entry.data.content && entry.data.content !== '[image]'" :content="entry.data.content" />
               <div v-if="entry.data.isStreaming" class="streaming-dots">
                 <span /><span /><span />
               </div>
@@ -102,15 +134,24 @@ onMounted(scrollToBottom)
     <!-- Input -->
     <div class="input-area">
       <div class="input-container">
+        <!-- Attachment preview -->
+        <div v-if="attachments.length > 0" class="attachment-preview">
+          <div v-for="att in attachments" :key="att.id" class="attachment-thumb">
+            <img :src="att.dataUrl" alt="attachment" />
+            <button class="attachment-remove" @click="removeAttachment(att.id)">&times;</button>
+          </div>
+        </div>
         <textarea
           ref="inputEl"
           v-model="input"
           class="chat-input"
+          :class="{ 'has-attachments': attachments.length > 0 }"
           :placeholder="isConnected ? `Message ${agentName}...` : 'Disconnected'"
           :disabled="!isConnected"
           rows="1"
           @keydown="handleKeydown"
           @input="autoResize"
+          @paste="handlePaste"
         />
         <div class="input-actions">
           <button
@@ -259,6 +300,17 @@ onMounted(scrollToBottom)
   border-bottom-left-radius: 6px;
 }
 
+/* Bubble attachments */
+.bubble-attachments {
+  margin-bottom: 8px;
+}
+.bubble-image {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: var(--radius-md);
+  object-fit: contain;
+}
+
 /* Input area */
 .input-area {
   padding: 16px 24px 24px;
@@ -275,6 +327,47 @@ onMounted(scrollToBottom)
 }
 .input-container:focus-within {
   border-color: var(--accent);
+}
+
+/* Attachment preview in input */
+.attachment-preview {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px 0;
+  flex-wrap: wrap;
+}
+.attachment-thumb {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+.attachment-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.attachment-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.attachment-remove:hover {
+  background: var(--danger);
 }
 
 .chat-input {
