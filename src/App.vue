@@ -16,6 +16,7 @@ const chatHistories = reactive<Record<string, ChatMessage[]>>({})
 const toolCalls = reactive<Record<string, Record<string, ToolCall>>>({})
 const unreadCounts = reactive<Record<string, number>>({})
 const lastActivity = reactive<Record<string, number>>({})
+const pendingNewSession = reactive<Record<string, boolean>>({})
 // Track active runId per agent for abort functionality
 const activeRunIds = reactive<Record<string, string | null>>({})
 const notifications = useNotifications()
@@ -229,6 +230,7 @@ function handleChatEvent(payload: Record<string, unknown>) {
   }
 
   if (state === 'delta') {
+    if (pendingNewSession[agentId]) return // suppress streaming during /new reset
     const msgs = chatHistories[agentId]
     const last = msgs[msgs.length - 1]
     lastActivity[agentId] = Date.now()
@@ -251,6 +253,13 @@ function handleChatEvent(payload: Record<string, unknown>) {
     const msgs = chatHistories[agentId]
     const last = msgs[msgs.length - 1]
     lastActivity[agentId] = Date.now()
+
+    // Suppress the system response after /new (session reset)
+    if (pendingNewSession[agentId]) {
+      delete pendingNewSession[agentId]
+      if (last?.isStreaming) msgs.pop()
+      return
+    }
 
     // Resolve final text
     let finalText = text || last?.content || ''
@@ -554,6 +563,7 @@ function handleNewSession() {
   // Same mechanism as the native Control UI's "New Session" button.
   const agentId = activeAgentId.value
   const sk = sessionKeyFor(agentId)
+  pendingNewSession[agentId] = true
   gateway?.chatSend(sk, '/new')
   // Clear local state for this agent
   chatHistories[agentId] = []
