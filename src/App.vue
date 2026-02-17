@@ -15,6 +15,7 @@ const activeAgentId = ref('main')
 const chatHistories = reactive<Record<string, ChatMessage[]>>({})
 const toolCalls = reactive<Record<string, Record<string, ToolCall>>>({})
 const unreadCounts = reactive<Record<string, number>>({})
+const lastActivity = reactive<Record<string, number>>({})
 const notifications = useNotifications()
 const connectionError = ref('')
 let gateway: ReturnType<typeof useGatewayWs> | null = null
@@ -30,12 +31,10 @@ function initAgent(agentId: string) {
   if (!(agentId in unreadCounts)) unreadCounts[agentId] = 0
 }
 
-// Sort agents: most recently messaged first
+// Sort agents: most recently active first
 const sortedAgents = computed(() => {
   return [...agents].sort((a, b) => {
-    const aLast = chatHistories[a.id]?.[chatHistories[a.id].length - 1]?.timestamp || 0
-    const bLast = chatHistories[b.id]?.[chatHistories[b.id].length - 1]?.timestamp || 0
-    return bLast - aLast
+    return (lastActivity[b.id] || 0) - (lastActivity[a.id] || 0)
   })
 })
 
@@ -100,6 +99,7 @@ function handleChatEvent(payload: Record<string, unknown>) {
   if (state === 'delta') {
     const msgs = chatHistories[agentId]
     const last = msgs[msgs.length - 1]
+    lastActivity[agentId] = Date.now()
     if (last?.isStreaming && last.role === 'assistant') {
       last.content = text
     } else {
@@ -115,6 +115,7 @@ function handleChatEvent(payload: Record<string, unknown>) {
   } else if (state === 'final') {
     const msgs = chatHistories[agentId]
     const last = msgs[msgs.length - 1]
+    lastActivity[agentId] = Date.now()
     if (last?.isStreaming) {
       last.isStreaming = false
       if (text) last.content = text
@@ -286,6 +287,10 @@ async function loadHistory(agentId: string) {
     if (result && Array.isArray(result.messages)) {
       chatHistories[agentId] = parseMessages(agentId, result.messages as Array<Record<string, unknown>>, 'hist')
       hasMoreHistory[agentId] = (result.messages as unknown[]).length >= HISTORY_PAGE_SIZE
+      const msgs = chatHistories[agentId]
+      if (msgs.length > 0) {
+        lastActivity[agentId] = msgs[msgs.length - 1].timestamp
+      }
     }
   } catch (e) {
     console.warn(`[App] Failed to load history for ${agentId}:`, e)
@@ -330,6 +335,7 @@ function handleSend(payload: { text: string; attachments?: Array<{ dataUrl: stri
   const { text, attachments } = payload
 
   // Add user message locally
+  lastActivity[agentId] = Date.now()
   chatHistories[agentId].push({
     id: `user_${Date.now()}`,
     role: 'user',
