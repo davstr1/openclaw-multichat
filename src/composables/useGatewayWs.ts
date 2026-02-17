@@ -236,12 +236,14 @@ export function useGatewayWs(options: GatewayWsOptions) {
     return rpc('chat.send', params)
   }
 
-  function chatAbort(sessionKey: string) {
+  function chatAbort(sessionKey: string, runId?: string) {
+    const params: Record<string, unknown> = { sessionKey }
+    if (runId) params.runId = runId
     sendRaw({
       type: 'req',
       id: nextId(),
       method: 'chat.abort',
-      params: { sessionKey },
+      params,
     })
   }
 

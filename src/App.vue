@@ -16,6 +16,8 @@ const chatHistories = reactive<Record<string, ChatMessage[]>>({})
 const toolCalls = reactive<Record<string, Record<string, ToolCall>>>({})
 const unreadCounts = reactive<Record<string, number>>({})
 const lastActivity = reactive<Record<string, number>>({})
+// Track active runId per agent for abort functionality
+const activeRunIds = reactive<Record<string, string | null>>({})
 const notifications = useNotifications()
 const connectionError = ref('')
 let gateway: ReturnType<typeof useGatewayWs> | null = null
@@ -58,8 +60,9 @@ const activeTimeline = computed<TimelineEntry[]>(() => {
 const activeAgent = computed(() => agents.find((a) => a.id === activeAgentId.value) || { id: 'main', name: 'Agent' })
 const isConnected = computed(() => gateway?.connection.status === 'connected')
 const isStreaming = computed(() => {
-  const msgs = chatHistories[activeAgentId.value]
-  return msgs?.some((m) => m.isStreaming) || false
+  const agentId = activeAgentId.value
+  const msgs = chatHistories[agentId]
+  return msgs?.some((m) => m.isStreaming) || !!activeRunIds[agentId]
 })
 
 // Clear unread when switching tabs
@@ -201,6 +204,29 @@ function handleChatEvent(payload: Record<string, unknown>) {
 
   // DIRTY QUICK FIX: skip duplicate final messages from zombie WS connections
   if (isDuplicate(agentId, state, text)) return
+
+  // Track runId for abort functionality
+  const runId = payload.runId as string | undefined
+  if (runId && (state === 'delta' || state === 'streaming')) {
+    activeRunIds[agentId] = runId
+  }
+  if (state === 'final' || state === 'error' || state === 'aborted') {
+    activeRunIds[agentId] = null
+  }
+
+  if (state === 'aborted') {
+    // Handle abort: finalize streaming message with whatever content we have
+    const msgs = chatHistories[agentId]
+    const last = msgs[msgs.length - 1]
+    if (last?.isStreaming) {
+      last.isStreaming = false
+      // Keep partial content if any, otherwise remove the placeholder
+      if (!last.content?.trim()) {
+        msgs.pop()
+      }
+    }
+    return
+  }
 
   if (state === 'delta') {
     const msgs = chatHistories[agentId]
@@ -517,8 +543,10 @@ function handleSend(payload: { text: string; attachments?: Array<{ dataUrl: stri
 }
 
 function handleAbort() {
-  const sk = sessionKeyFor(activeAgentId.value)
-  gateway?.chatAbort(sk)
+  const agentId = activeAgentId.value
+  const sk = sessionKeyFor(agentId)
+  const runId = activeRunIds[agentId] || undefined
+  gateway?.chatAbort(sk, runId)
 }
 
 function selectAgent(agentId: string) {
