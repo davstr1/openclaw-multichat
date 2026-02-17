@@ -248,24 +248,39 @@ function classifyVisualRole(role: string, content: string): ChatMessage['visualR
 function parseMessages(agentId: string, rawMessages: Array<Record<string, unknown>>, prefix: string): ChatMessage[] {
   return rawMessages.map((m, i) => {
     let content = ''
+    const imageUrls: string[] = []
     if (typeof m.content === 'string') {
       content = m.content
     } else if (Array.isArray(m.content)) {
-      content = (m.content as Array<Record<string, string>>)
-        .filter((b) => b.type === 'text')
-        .map((b) => b.text)
-        .join('\n')
+      for (const block of m.content as Array<Record<string, unknown>>) {
+        if (block.type === 'text') {
+          content += (content ? '\n' : '') + (block.text as string)
+        } else if (block.type === 'image') {
+          // Anthropic format: { type: 'image', source: { type: 'base64', media_type, data } }
+          const src = block.source as Record<string, string> | undefined
+          if (src?.type === 'base64' && src.data) {
+            imageUrls.push(`data:${src.media_type || 'image/png'};base64,${src.data}`)
+          }
+        } else if (block.type === 'image_url') {
+          // OpenAI format: { type: 'image_url', image_url: { url } }
+          const imgUrl = block.image_url as Record<string, string> | undefined
+          if (imgUrl?.url) {
+            imageUrls.push(imgUrl.url)
+          }
+        }
+      }
     }
     const role = (m.role as ChatMessage['role']) || 'assistant'
     return {
       id: `${prefix}_${agentId}_${i}`,
       role,
       visualRole: classifyVisualRole(role, content),
-      content,
+      content: content || (imageUrls.length > 0 ? '[image]' : ''),
       timestamp: (m.timestamp as number) || Date.now(),
       agentId,
+      attachments: imageUrls.length > 0 ? imageUrls : undefined,
     }
-  }).filter((m) => m.content && m.role !== 'system')
+  }).filter((m) => (m.content || m.attachments?.length) && m.role !== 'system')
 }
 
 async function loadHistory(agentId: string) {
