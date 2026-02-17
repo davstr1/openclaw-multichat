@@ -79,36 +79,61 @@ function isSilentReply(text: string): boolean {
   return false
 }
 
-/** Detect tool result JSON that shouldn't be shown as chat text */
+/** Detect tool result / gateway send output that shouldn't be shown as chat text */
 function isToolResultJson(text: string): boolean {
   if (!text) return false
   const t = text.trim()
-  // Detect message tool results: JSON with channel/mediaUrl/result keys
-  if (t.startsWith('{') && t.endsWith('}')) {
-    try {
-      const obj = JSON.parse(t)
-      if (obj.channel && (obj.mediaUrl || obj.mediaUrls || obj.result?.messageId)) return true
-      if (obj.result && obj.via === 'gateway') return true
-    } catch { /* not valid JSON, that's fine */ }
+  // Regex-based: detect message tool results even with malformed JSON (semicolons, etc.)
+  // Look for typical gateway send result patterns
+  if (/"channel"\s*:\s*"(whatsapp|telegram|signal|discord|imessage)"/.test(t) &&
+      (/"mediaUrl"/.test(t) || /"result"/.test(t) || /"via"\s*:\s*"gateway"/.test(t))) {
+    return true
   }
+  // Also catch MEDIA: file paths
+  if (/^MEDIA:/.test(t)) return true
   return false
 }
 
-/** Extract a friendly summary from tool result JSON for display */
+/** Extract a friendly summary from tool result text for display */
 function toolResultSummary(text: string): string {
-  try {
-    const obj = JSON.parse(text.trim())
-    if (obj.mediaUrl || obj.mediaUrls) {
-      const url = obj.mediaUrl || obj.mediaUrls?.[0] || ''
-      const filename = url.split('/').pop() || 'file'
-      const to = obj.to || ''
-      return `Sent ${filename}${to ? ' to ' + to : ''} via ${obj.channel || 'message'}`
-    }
-    if (obj.result?.messageId) {
-      return `Message sent via ${obj.channel || 'unknown'}`
-    }
-    return ''
-  } catch { return '' }
+  const t = text.trim()
+  // Extract filename from mediaUrl path
+  const mediaMatch = t.match(/"mediaUrl"\s*:\s*"([^"]+)"/)
+  const channelMatch = t.match(/"channel"\s*:\s*"([^"]+)"/)
+  const toMatch = t.match(/"to"\s*:\s*"([^"]+)"/)
+
+  if (mediaMatch) {
+    const filename = mediaMatch[1].split('/').pop() || 'file'
+    const channel = channelMatch?.[1] || 'message'
+    const to = toMatch?.[1] || ''
+    return `Sent ${filename}${to ? ' to ' + to : ''} via ${channel}`
+  }
+
+  if (channelMatch && /"messageId"/.test(t)) {
+    return `Message sent via ${channelMatch[1]}`
+  }
+
+  // MEDIA: token
+  if (/^MEDIA:/.test(t)) {
+    const path = t.replace(/^MEDIA:\s*/, '').trim()
+    return `Sent ${path.split('/').pop() || 'media'}`
+  }
+
+  return ''
+}
+
+/** Extract local media path from tool result and convert to serveable URL */
+function extractMediaPath(text: string): string | null {
+  const t = text.trim()
+  const match = t.match(/"mediaUrl"\s*:\s*"([^"]+)"/)
+  if (!match) return null
+  const filePath = match[1]
+  // Convert local path to gateway media proxy URL
+  // OpenClaw gateway serves local files via /media/ endpoint
+  if (filePath.startsWith('/')) {
+    return `/api/media?path=${encodeURIComponent(filePath)}`
+  }
+  return filePath
 }
 
 function extractText(message: Record<string, unknown>): string {
@@ -170,14 +195,33 @@ function handleChatEvent(payload: Record<string, unknown>) {
       return
     }
 
-    // Convert tool result JSON to friendly summary
+    // Convert tool result JSON to friendly summary + extract media
     if (isToolResultJson(finalText)) {
       const summary = toolResultSummary(finalText)
-      finalText = summary || '' // empty = don't show
-      if (!finalText) {
-        if (last?.isStreaming) msgs.pop()
-        return
+      const mediaPath = extractMediaPath(finalText)
+      finalText = summary || ''
+      
+      if (last?.isStreaming) {
+        if (!finalText && !mediaPath) { msgs.pop(); return }
+        last.isStreaming = false
+        last.content = finalText
+        if (mediaPath) last.attachments = [mediaPath]
+      } else if (finalText || mediaPath) {
+        msgs.push({
+          id: `msg_${agentId}_${Date.now()}`,
+          role: 'assistant',
+          content: finalText,
+          timestamp: Date.now(),
+          agentId,
+          attachments: mediaPath ? [mediaPath] : undefined,
+        })
       }
+
+      if (agentId !== activeAgentId.value) {
+        unreadCounts[agentId] = (unreadCounts[agentId] || 0) + 1
+        notifications.notify(agent.name, finalText || 'Sent media')
+      }
+      return
     }
 
     if (last?.isStreaming) {
@@ -347,7 +391,9 @@ function parseMessages(agentId: string, rawMessages: Array<Record<string, unknow
     if (m.role === 'assistant' && isSilentReply(m.content)) return false
     if (m.role === 'assistant' && isToolResultJson(m.content)) {
       const summary = toolResultSummary(m.content)
-      if (summary) { m.content = summary } else { return false }
+      const mediaPath = extractMediaPath(m.content)
+      if (mediaPath) m.attachments = [mediaPath]
+      if (summary) { m.content = summary } else if (!mediaPath) { return false } else { m.content = '' }
     }
     return true
   })
