@@ -4,7 +4,7 @@ import ChatPanel from './components/ChatPanel.vue'
 import ConnectionSettings from './components/ConnectionSettings.vue'
 import { useGatewayWs } from './composables/useGatewayWs'
 import { useNotifications } from './composables/useNotifications'
-import type { Agent, ChatMessage } from './types'
+import type { Agent, ChatMessage, ToolCall, TimelineEntry } from './types'
 
 const agents: Agent[] = [
   { id: 'main', name: 'Kai-1', label: 'K1' },
@@ -16,6 +16,7 @@ const agents: Agent[] = [
 const connected = ref(false)
 const activeAgentId = ref('main')
 const chatHistories = reactive<Record<string, ChatMessage[]>>({})
+const toolCalls = reactive<Record<string, Record<string, ToolCall>>>({})
 const unreadCounts = reactive<Record<string, number>>({})
 const notifications = useNotifications()
 const connectionError = ref('')
@@ -29,6 +30,7 @@ function sessionKeyFor(agentId: string): string {
 // Init empty histories
 agents.forEach((a) => {
   chatHistories[a.id] = []
+  toolCalls[a.id] = {}
   unreadCounts[a.id] = 0
 })
 
@@ -51,6 +53,13 @@ function lastMessagePreview(agentId: string): string {
 }
 
 const activeMessages = computed(() => chatHistories[activeAgentId.value] || [])
+
+const activeTimeline = computed<TimelineEntry[]>(() => {
+  const agentId = activeAgentId.value
+  const msgs: TimelineEntry[] = (chatHistories[agentId] || []).map(m => ({ kind: 'message' as const, data: m }))
+  const tools: TimelineEntry[] = Object.values(toolCalls[agentId] || {}).map(t => ({ kind: 'tool' as const, data: t }))
+  return [...msgs, ...tools].sort((a, b) => a.data.timestamp - b.data.timestamp)
+})
 const activeAgent = computed(() => agents.find((a) => a.id === activeAgentId.value)!)
 const isConnected = computed(() => gateway?.connection.status === 'connected')
 const isStreaming = computed(() => {
@@ -141,6 +150,54 @@ function handleChatEvent(payload: Record<string, unknown>) {
   }
 }
 
+function resolveAgentFromSession(sessionKey: string): Agent | undefined {
+  const sessionAgentId = sessionKey.split(':')[1] || ''
+  return agents.find((a) => a.id === sessionAgentId)
+}
+
+function handleAgentEvent(payload: Record<string, unknown>) {
+  if (payload.stream !== 'tool') return
+
+  const sessionKey = payload.sessionKey as string || ''
+  const agent = resolveAgentFromSession(sessionKey)
+  if (!agent) return
+
+  const data = payload.data as Record<string, unknown> || {}
+  const toolCallId = data.toolCallId as string
+  if (!toolCallId) return
+
+  const name = (data.name as string) || 'tool'
+  const phase = (data.phase as string) || 'start'
+  const args = phase === 'start' ? data.args : undefined
+  const output = phase === 'result' ? stringifyResult(data.result) : phase === 'update' ? stringifyResult(data.partialResult) : undefined
+
+  const existing = toolCalls[agent.id]?.[toolCallId]
+  if (existing) {
+    existing.name = name
+    existing.phase = phase as ToolCall['phase']
+    if (args !== undefined) existing.args = args
+    if (output !== undefined) existing.output = output
+  } else {
+    if (!toolCalls[agent.id]) toolCalls[agent.id] = {}
+    toolCalls[agent.id][toolCallId] = {
+      id: `tool_${toolCallId}`,
+      toolCallId,
+      name,
+      phase: phase as ToolCall['phase'],
+      args,
+      output,
+      timestamp: Date.now(),
+      agentId: agent.id,
+    }
+  }
+}
+
+function stringifyResult(val: unknown): string {
+  if (val === undefined || val === null) return ''
+  if (typeof val === 'string') return val
+  return JSON.stringify(val, null, 2)
+}
+
 async function handleConnect(url: string, token: string) {
   console.log('[App] handleConnect called', url, token ? '(token set)' : '(no token)')
   notifications.requestPermission()
@@ -151,6 +208,8 @@ async function handleConnect(url: string, token: string) {
     onEvent: (event, payload) => {
       if (event === 'chat') {
         handleChatEvent(payload)
+      } else if (event === 'agent') {
+        handleAgentEvent(payload)
       }
     },
     onConnected: async () => {
@@ -290,6 +349,7 @@ function selectAgent(agentId: string) {
         <main class="chat-main">
           <ChatPanel
             :messages="activeMessages"
+            :timeline="activeTimeline"
             :agent-name="activeAgent.name"
             :is-connected="isConnected"
             :is-streaming="isStreaming"

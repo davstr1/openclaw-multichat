@@ -13,6 +13,21 @@ export interface ChatMessage {
   isStreaming?: boolean
 }
 
+export interface ToolCall {
+  id: string
+  toolCallId: string
+  name: string
+  phase: 'start' | 'update' | 'result'
+  args?: unknown
+  output?: string
+  timestamp: number
+  agentId: string
+}
+
+export type TimelineEntry =
+  | { kind: 'message'; data: ChatMessage }
+  | { kind: 'tool'; data: ToolCall }
+
 export interface WsMessage {
   type: string
   id?: string

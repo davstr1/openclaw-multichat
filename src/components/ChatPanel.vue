@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, nextTick, watch, onMounted } from 'vue'
-import type { ChatMessage } from '../types'
+import type { ChatMessage, TimelineEntry } from '../types'
 import MarkdownContent from './MarkdownContent.vue'
+import ToolCard from './ToolCard.vue'
 
 const props = defineProps<{
   messages: ChatMessage[]
+  timeline: TimelineEntry[]
   agentName: string
   isConnected: boolean
   isStreaming: boolean
@@ -49,7 +51,7 @@ function scrollToBottom() {
   })
 }
 
-watch(() => props.messages.length, scrollToBottom)
+watch(() => props.timeline.length, scrollToBottom)
 watch(() => props.messages[props.messages.length - 1]?.content, scrollToBottom)
 onMounted(scrollToBottom)
 </script>
@@ -66,24 +68,27 @@ onMounted(scrollToBottom)
       </div>
 
       <div class="messages-list">
-        <div
-          v-for="msg in messages"
-          :key="msg.id"
-          class="message-row"
-          :class="msg.role"
-        >
-          <!-- Agent avatar for assistant messages -->
-          <div v-if="msg.role === 'assistant'" class="avatar">
-            <span class="avatar-letter">{{ agentName[0] }}</span>
+        <template v-for="entry in timeline" :key="entry.data.id">
+          <!-- Tool call card -->
+          <div v-if="entry.kind === 'tool'" class="tool-row">
+            <div class="avatar-spacer" />
+            <ToolCard :tool="entry.data" />
           </div>
 
-          <div class="bubble" :class="msg.role">
-            <MarkdownContent :content="msg.content" />
-            <div v-if="msg.isStreaming" class="streaming-dots">
-              <span /><span /><span />
+          <!-- Chat message -->
+          <div v-else class="message-row" :class="entry.data.role">
+            <div v-if="entry.data.role === 'assistant'" class="avatar">
+              <span class="avatar-letter">{{ agentName[0] }}</span>
+            </div>
+
+            <div class="bubble" :class="entry.data.role">
+              <MarkdownContent :content="entry.data.content" />
+              <div v-if="entry.data.isStreaming" class="streaming-dots">
+                <span /><span /><span />
+              </div>
             </div>
           </div>
-        </div>
+        </template>
       </div>
     </div>
 
@@ -178,6 +183,18 @@ onMounted(scrollToBottom)
 .message-row.assistant {
   justify-content: flex-start;
   align-items: flex-start;
+}
+
+.tool-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  animation: fadeIn 0.2s ease;
+}
+
+.avatar-spacer {
+  width: 28px;
+  flex-shrink: 0;
 }
 
 .avatar {
