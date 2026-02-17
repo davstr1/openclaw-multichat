@@ -75,6 +75,13 @@ onMounted(scrollToBottom)
             <ToolCard :tool="entry.data" />
           </div>
 
+          <!-- System notice (injected by gateway, not the user) -->
+          <div v-else-if="entry.data.visualRole === 'system-notice'" class="system-notice-row">
+            <div class="system-notice">
+              {{ entry.data.content.length > 120 ? entry.data.content.slice(0, 120) + '...' : entry.data.content }}
+            </div>
+          </div>
+
           <!-- Chat message -->
           <div v-else class="message-row" :class="entry.data.role">
             <div v-if="entry.data.role === 'assistant'" class="avatar">
@@ -195,6 +202,24 @@ onMounted(scrollToBottom)
 .avatar-spacer {
   width: 28px;
   flex-shrink: 0;
+}
+
+.system-notice-row {
+  display: flex;
+  justify-content: center;
+}
+.system-notice {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  padding: 4px 16px;
+  max-width: 80%;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .avatar {

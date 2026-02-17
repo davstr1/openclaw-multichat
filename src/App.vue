@@ -231,6 +231,20 @@ const hasMoreHistory = reactive<Record<string, boolean>>({})
 
 agents.forEach((a) => { hasMoreHistory[a.id] = true })
 
+const SYSTEM_PATTERNS = [
+  /^System:\s*\[/,
+  /^Read HEARTBEAT\.md/,
+  /^\[System Message\]/,
+  /^Pre-compaction memory flush/,
+]
+
+function classifyVisualRole(role: string, content: string): ChatMessage['visualRole'] {
+  if (role === 'user' && SYSTEM_PATTERNS.some(p => p.test(content))) {
+    return 'system-notice'
+  }
+  return role as ChatMessage['visualRole']
+}
+
 function parseMessages(agentId: string, rawMessages: Array<Record<string, unknown>>, prefix: string): ChatMessage[] {
   return rawMessages.map((m, i) => {
     let content = ''
@@ -242,9 +256,11 @@ function parseMessages(agentId: string, rawMessages: Array<Record<string, unknow
         .map((b) => b.text)
         .join('\n')
     }
+    const role = (m.role as ChatMessage['role']) || 'assistant'
     return {
       id: `${prefix}_${agentId}_${i}`,
-      role: (m.role as ChatMessage['role']) || 'assistant',
+      role,
+      visualRole: classifyVisualRole(role, content),
       content,
       timestamp: (m.timestamp as number) || Date.now(),
       agentId,

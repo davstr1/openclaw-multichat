@@ -7,6 +7,7 @@ export interface Agent {
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
+  visualRole?: 'user' | 'assistant' | 'system-notice'
   content: string
   timestamp: number
   agentId: string
