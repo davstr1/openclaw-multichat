@@ -6,12 +6,9 @@ import { useGatewayWs } from './composables/useGatewayWs'
 import { useNotifications } from './composables/useNotifications'
 import type { Agent, ChatMessage, ToolCall, TimelineEntry } from './types'
 
-const agents: Agent[] = [
-  { id: 'main', name: 'Kai-1', label: 'K1' },
-  { id: 'kai-2', name: 'Kai-2', label: 'K2' },
-  { id: 'kai-3', name: 'Kai-3', label: 'K3' },
-  { id: 'kai-4', name: 'Kai-4', label: 'K4' },
-]
+// Agents loaded dynamically from gateway via agents.list RPC
+const agents = reactive<Agent[]>([])
+const defaultAgentId = ref('main')
 
 const connected = ref(false)
 const activeAgentId = ref('main')
@@ -27,12 +24,11 @@ function sessionKeyFor(agentId: string): string {
   return `agent:${agentId}:main`
 }
 
-// Init empty histories
-agents.forEach((a) => {
-  chatHistories[a.id] = []
-  toolCalls[a.id] = {}
-  unreadCounts[a.id] = 0
-})
+function initAgent(agentId: string) {
+  if (!chatHistories[agentId]) chatHistories[agentId] = []
+  if (!toolCalls[agentId]) toolCalls[agentId] = {}
+  if (!(agentId in unreadCounts)) unreadCounts[agentId] = 0
+}
 
 // Sort agents: most recently messaged first
 const sortedAgents = computed(() => {
@@ -60,7 +56,7 @@ const activeTimeline = computed<TimelineEntry[]>(() => {
   const tools: TimelineEntry[] = Object.values(toolCalls[agentId] || {}).map(t => ({ kind: 'tool' as const, data: t }))
   return [...msgs, ...tools].sort((a, b) => a.data.timestamp - b.data.timestamp)
 })
-const activeAgent = computed(() => agents.find((a) => a.id === activeAgentId.value)!)
+const activeAgent = computed(() => agents.find((a) => a.id === activeAgentId.value) || { id: 'main', name: 'Agent' })
 const isConnected = computed(() => gateway?.connection.status === 'connected')
 const isStreaming = computed(() => {
   const msgs = chatHistories[activeAgentId.value]
@@ -136,7 +132,7 @@ function handleChatEvent(payload: Record<string, unknown>) {
     if (agentId !== activeAgentId.value) {
       unreadCounts[agentId] = (unreadCounts[agentId] || 0) + 1
       notifications.notify(
-        `${agent.label || ''} ${agent.name}`,
+        agent.name,
         (text || last?.content || '').slice(0, 100) || 'New message'
       )
     }
@@ -213,9 +209,10 @@ async function handleConnect(url: string, token: string) {
       }
     },
     onConnected: async () => {
-      console.log('[App] Connected! Loading histories...')
+      console.log('[App] Connected! Loading agents + histories...')
       connected.value = true
       connectionError.value = ''
+      await loadAgents()
       await loadAllHistories()
     },
     onDisconnected: () => {
@@ -228,8 +225,6 @@ async function handleConnect(url: string, token: string) {
 
 const HISTORY_PAGE_SIZE = 30
 const hasMoreHistory = reactive<Record<string, boolean>>({})
-
-agents.forEach((a) => { hasMoreHistory[a.id] = true })
 
 const SYSTEM_PATTERNS = [
   /^System:\s*\[/,
@@ -294,6 +289,32 @@ async function loadHistory(agentId: string) {
     }
   } catch (e) {
     console.warn(`[App] Failed to load history for ${agentId}:`, e)
+  }
+}
+
+async function loadAgents() {
+  if (!gateway) return
+  try {
+    const result = await gateway.rpc('agents.list', {}) as { agents: Array<{ id: string; name?: string; default?: boolean }>; defaultId?: string }
+    if (result?.agents) {
+      agents.length = 0
+      for (const a of result.agents) {
+        const name = a.name || a.id
+        agents.push({ id: a.id, name })
+        initAgent(a.id)
+      }
+      if (result.defaultId) defaultAgentId.value = result.defaultId
+      if (!agents.find(a => a.id === activeAgentId.value) && agents.length > 0) {
+        activeAgentId.value = agents[0].id
+      }
+    }
+  } catch (e) {
+    console.warn('[App] Failed to load agents:', e)
+    // Fallback to a single main agent
+    if (agents.length === 0) {
+      agents.push({ id: 'main', name: 'Agent' })
+      initAgent('main')
+    }
   }
 }
 
