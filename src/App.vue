@@ -390,14 +390,19 @@ function parseMessages(agentId: string, rawMessages: Array<Record<string, unknow
   }).filter((m) => {
     if (m.role === 'system') return false
     if (!m.content && !m.attachments?.length) return false
-    // Filter silent replies and raw tool result JSON from history
+    // Filter silent replies
     if (m.role === 'assistant' && isSilentReply(m.content)) return false
-    if (m.role === 'assistant' && isToolResultJson(m.content)) {
+    // Catch tool result JSON on ANY role (assistant, tool, tool_result)
+    // Convert to friendly summary + image, or hide entirely
+    if (isToolResultJson(m.content)) {
       const summary = toolResultSummary(m.content)
       const mediaPath = extractMediaPath(m.content)
       if (mediaPath) m.attachments = [mediaPath]
-      if (summary) { m.content = summary } else if (!mediaPath) { return false } else { m.content = '' }
+      if (summary) { m.content = summary; m.role = 'assistant' } else if (!mediaPath) { return false } else { m.content = ''; m.role = 'assistant' }
     }
+    // Hide raw tool role messages (tool call results without media) — shown as tool cards via agent events
+    const roleLower = (m.role as string)?.toLowerCase() || ''
+    if (roleLower === 'tool' || roleLower === 'tool_result' || roleLower === 'toolresult') return false
     return true
   })
 }
