@@ -122,7 +122,7 @@ onMounted(scrollToBottom)
 }
 .message-bubble.user {
   background: var(--accent);
-  color: white;
+  color: var(--accent-text);
   border-bottom-right-radius: 4px;
 }
 .message-bubble.assistant {
@@ -153,7 +153,7 @@ onMounted(scrollToBottom)
 .send-button {
   padding: 8px 16px;
   background: var(--accent);
-  color: white;
+  color: var(--accent-text);
   border: none;
   border-radius: var(--radius-button);
   cursor: pointer;

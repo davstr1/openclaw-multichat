@@ -21,11 +21,11 @@ const emit = defineEmits<{
       :class="{ active: agent.id === props.activeAgentId }"
       @click="emit('select', agent.id)"
     >
-      <span v-if="agent.emoji" class="mr-1">{{ agent.emoji }}</span>
+      <span v-if="agent.label" class="mr-1 text-xs font-mono opacity-60">{{ agent.label }}</span>
       <span>{{ agent.name }}</span>
       <span
         v-if="(unreadCounts[agent.id] || 0) > 0"
-        class="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-[var(--accent)] text-white"
+        class="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-[var(--accent)] text-[var(--accent-text)]"
       >
         {{ unreadCounts[agent.id] }}
       </span>

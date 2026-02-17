@@ -110,6 +110,7 @@ const html = computed(() => {
 
 .markdown-body code {
   background: var(--surface-tertiary);
+  border: 1px solid var(--border-subtle);
   padding: 0 8px;
   border-radius: 4px;
   font-size: 13px;
@@ -120,6 +121,7 @@ const html = computed(() => {
   background: var(--surface-primary);
   padding: 16px;
   border-radius: 8px;
+  border: 1px solid var(--border-subtle);
   overflow-x: auto;
   margin: 8px 0;
 }
