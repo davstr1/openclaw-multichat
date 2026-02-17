@@ -67,6 +67,50 @@ watch(activeAgentId, (id) => {
   unreadCounts[id] = 0
 })
 
+/** Detect NO_REPLY / HEARTBEAT_OK silent tokens */
+function isSilentReply(text: string): boolean {
+  if (!text) return false
+  const t = text.trim()
+  // Exact match or starts/ends with token
+  if (/^\s*NO_REPLY(?:\s|$)/.test(t)) return true
+  if (/\bNO_REPLY\b\W*$/.test(t)) return true
+  // HEARTBEAT_OK on its own
+  if (/^\s*HEARTBEAT_OK\s*$/.test(t)) return true
+  return false
+}
+
+/** Detect tool result JSON that shouldn't be shown as chat text */
+function isToolResultJson(text: string): boolean {
+  if (!text) return false
+  const t = text.trim()
+  // Detect message tool results: JSON with channel/mediaUrl/result keys
+  if (t.startsWith('{') && t.endsWith('}')) {
+    try {
+      const obj = JSON.parse(t)
+      if (obj.channel && (obj.mediaUrl || obj.mediaUrls || obj.result?.messageId)) return true
+      if (obj.result && obj.via === 'gateway') return true
+    } catch { /* not valid JSON, that's fine */ }
+  }
+  return false
+}
+
+/** Extract a friendly summary from tool result JSON for display */
+function toolResultSummary(text: string): string {
+  try {
+    const obj = JSON.parse(text.trim())
+    if (obj.mediaUrl || obj.mediaUrls) {
+      const url = obj.mediaUrl || obj.mediaUrls?.[0] || ''
+      const filename = url.split('/').pop() || 'file'
+      const to = obj.to || ''
+      return `Sent ${filename}${to ? ' to ' + to : ''} via ${obj.channel || 'message'}`
+    }
+    if (obj.result?.messageId) {
+      return `Message sent via ${obj.channel || 'unknown'}`
+    }
+    return ''
+  } catch { return '' }
+}
+
 function extractText(message: Record<string, unknown>): string {
   const content = message?.content
   if (typeof content === 'string') return content
@@ -116,14 +160,34 @@ function handleChatEvent(payload: Record<string, unknown>) {
     const msgs = chatHistories[agentId]
     const last = msgs[msgs.length - 1]
     lastActivity[agentId] = Date.now()
+
+    // Resolve final text
+    let finalText = text || last?.content || ''
+
+    // Suppress NO_REPLY / HEARTBEAT_OK silent tokens
+    if (isSilentReply(finalText)) {
+      if (last?.isStreaming) msgs.pop() // remove streaming placeholder
+      return
+    }
+
+    // Convert tool result JSON to friendly summary
+    if (isToolResultJson(finalText)) {
+      const summary = toolResultSummary(finalText)
+      finalText = summary || '' // empty = don't show
+      if (!finalText) {
+        if (last?.isStreaming) msgs.pop()
+        return
+      }
+    }
+
     if (last?.isStreaming) {
       last.isStreaming = false
-      if (text) last.content = text
-    } else if (text) {
+      last.content = finalText
+    } else if (finalText) {
       msgs.push({
         id: `msg_${agentId}_${Date.now()}`,
         role: 'assistant',
-        content: text,
+        content: finalText,
         timestamp: Date.now(),
         agentId,
       })
@@ -276,7 +340,17 @@ function parseMessages(agentId: string, rawMessages: Array<Record<string, unknow
       agentId,
       attachments: imageUrls.length > 0 ? imageUrls : undefined,
     }
-  }).filter((m) => (m.content || m.attachments?.length) && m.role !== 'system')
+  }).filter((m) => {
+    if (m.role === 'system') return false
+    if (!m.content && !m.attachments?.length) return false
+    // Filter silent replies and raw tool result JSON from history
+    if (m.role === 'assistant' && isSilentReply(m.content)) return false
+    if (m.role === 'assistant' && isToolResultJson(m.content)) {
+      const summary = toolResultSummary(m.content)
+      if (summary) { m.content = summary } else { return false }
+    }
+    return true
+  })
 }
 
 async function loadHistory(agentId: string) {
