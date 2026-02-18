@@ -3,6 +3,7 @@ import { ref, nextTick, watch, onMounted } from 'vue'
 import type { ChatMessage, TimelineEntry } from '../types'
 import MarkdownContent from './MarkdownContent.vue'
 import ToolCard from './ToolCard.vue'
+import { stripInboundMeta } from '../composables/useStripMeta'
 
 const props = defineProps<{
   messages: ChatMessage[]
@@ -108,7 +109,7 @@ onMounted(scrollToBottom)
           <!-- System notice (injected by gateway, not the user) -->
           <div v-else-if="entry.data.visualRole === 'system-notice'" class="system-notice-row">
             <div class="system-notice">
-              {{ entry.data.content.length > 120 ? entry.data.content.slice(0, 120) + '...' : entry.data.content }}
+              {{ entry.data.content.length > 120 ? stripInboundMeta(entry.data.content).slice(0, 120) + '...' : stripInboundMeta(entry.data.content) }}
             </div>
           </div>
 
@@ -122,7 +123,7 @@ onMounted(scrollToBottom)
               <div v-if="entry.data.attachments?.length" class="bubble-attachments">
                 <img v-for="(src, idx) in entry.data.attachments" :key="idx" :src="src" class="bubble-image" alt="attachment" />
               </div>
-              <MarkdownContent v-if="entry.data.content && entry.data.content !== '[image]'" :content="entry.data.content" />
+              <MarkdownContent v-if="entry.data.content && entry.data.content !== '[image]'" :content="entry.data.role === 'user' ? stripInboundMeta(entry.data.content) : entry.data.content" />
               <div v-if="entry.data.isStreaming" class="streaming-dots">
                 <span /><span /><span />
               </div>
