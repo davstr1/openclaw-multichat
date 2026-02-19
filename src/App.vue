@@ -215,6 +215,24 @@ function handleChatEvent(payload: Record<string, unknown>) {
     activeRunIds[agentId] = null
   }
 
+  // Show typing dots as soon as agent starts processing (before first delta)
+  if (state === 'streaming') {
+    const msgs = chatHistories[agentId]
+    const last = msgs[msgs.length - 1]
+    lastActivity[agentId] = Date.now()
+    if (!last?.isStreaming) {
+      msgs.push({
+        id: `stream_${agentId}_${Date.now()}`,
+        role: 'assistant',
+        content: '',
+        timestamp: Date.now(),
+        agentId,
+        isStreaming: true,
+      })
+    }
+    return
+  }
+
   if (state === 'aborted') {
     // Handle abort: finalize streaming message with whatever content we have
     const msgs = chatHistories[agentId]
