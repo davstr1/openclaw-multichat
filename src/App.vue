@@ -255,7 +255,26 @@ function handleChatEvent(payload: Record<string, unknown>) {
     // Suppress tool result JSON during streaming — final handler will display it properly
     const displayText = isToolResultJson(text) ? '' : text
     if (last?.isStreaming && last.role === 'assistant') {
-      last.content = displayText
+      // Detect new assistant turn: if new text is shorter and doesn't start with
+      // existing content, the gateway reset cumulative text for a new turn.
+      // Finalize the current message and start a new streaming message.
+      const prevContent = last.content || ''
+      if (prevContent.length > 20 && displayText.length > 0 && displayText.length < prevContent.length * 0.5 && !prevContent.startsWith(displayText)) {
+        last.isStreaming = false
+        if (!last.content?.trim()) {
+          msgs.pop()
+        }
+        msgs.push({
+          id: `stream_${agentId}_${Date.now()}`,
+          role: 'assistant',
+          content: displayText,
+          timestamp: Date.now(),
+          agentId,
+          isStreaming: true,
+        })
+      } else {
+        last.content = displayText
+      }
     } else {
       if (!displayText) return // Don't create a streaming placeholder for tool result JSON
       msgs.push({
