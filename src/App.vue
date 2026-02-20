@@ -152,6 +152,15 @@ function extractText(message: Record<string, unknown>): string {
   return ''
 }
 
+function extractThinking(message: Record<string, unknown>): string {
+  const content = message?.content
+  if (!Array.isArray(content)) return ''
+  return (content as Array<Record<string, string>>)
+    .filter((b) => b.type === 'thinking')
+    .map((b) => b.thinking || b.text || '')
+    .join('\n')
+}
+
 /**
  * DIRTY QUICK FIX: Deduplicate messages received from multiple WebSocket connections.
  * The Control UI / gateway sometimes delivers the same message to multiple active WS
@@ -191,6 +200,7 @@ function handleChatEvent(payload: Record<string, unknown>) {
   const state = payload.state as string
   const message = payload.message as Record<string, unknown> | undefined
   const text = message ? extractText(message) : ''
+  const thinking = message ? extractThinking(message) : ''
 
   console.log('[Chat]', state, sessionKey, text?.slice(0, 50))
 
@@ -254,33 +264,46 @@ function handleChatEvent(payload: Record<string, unknown>) {
     lastActivity[agentId] = Date.now()
     // Suppress tool result JSON during streaming — final handler will display it properly
     const displayText = isToolResultJson(text) ? '' : text
+
+    // Update thinking content on streaming message
+    if (thinking && last?.isStreaming && last.role === 'assistant') {
+      last.thinking = thinking
+      last.isThinking = !displayText // still thinking if no text content yet
+    }
+
     if (last?.isStreaming && last.role === 'assistant') {
+      // When text arrives after thinking, mark thinking as done
+      if (displayText && last.isThinking) {
+        last.isThinking = false
+      }
       // Detect new assistant turn: if new text is shorter and doesn't start with
       // existing content, the gateway reset cumulative text for a new turn.
-      // Finalize the current message and start a new streaming message.
       const prevContent = last.content || ''
       if (prevContent.length > 20 && displayText.length > 0 && displayText.length < prevContent.length * 0.5 && !prevContent.startsWith(displayText)) {
         last.isStreaming = false
-        if (!last.content?.trim()) {
+        if (!last.content?.trim() && !last.thinking?.trim()) {
           msgs.pop()
         }
         msgs.push({
           id: `stream_${agentId}_${Date.now()}`,
           role: 'assistant',
           content: displayText,
+          thinking: thinking || undefined,
           timestamp: Date.now(),
           agentId,
           isStreaming: true,
         })
       } else {
-        last.content = displayText
+        if (displayText || !thinking) last.content = displayText
       }
     } else {
-      if (!displayText) return // Don't create a streaming placeholder for tool result JSON
+      if (!displayText && !thinking) return // Don't create a streaming placeholder for tool result JSON
       msgs.push({
         id: `stream_${agentId}_${Date.now()}`,
         role: 'assistant',
         content: displayText,
+        thinking: thinking || undefined,
+        isThinking: !!thinking && !displayText,
         timestamp: Date.now(),
         agentId,
         isStreaming: true,
@@ -338,12 +361,15 @@ function handleChatEvent(payload: Record<string, unknown>) {
 
     if (last?.isStreaming) {
       last.isStreaming = false
+      last.isThinking = false
       last.content = finalText
+      if (thinking) last.thinking = thinking
     } else if (finalText) {
       msgs.push({
         id: `msg_${agentId}_${Date.now()}`,
         role: 'assistant',
         content: finalText,
+        thinking: thinking || undefined,
         timestamp: Date.now(),
         agentId,
       })
@@ -467,6 +493,7 @@ function classifyVisualRole(role: string, content: string): ChatMessage['visualR
 function parseMessages(agentId: string, rawMessages: Array<Record<string, unknown>>, prefix: string): ChatMessage[] {
   return rawMessages.map((m, i) => {
     let content = ''
+    let thinkingText = ''
     const imageUrls: string[] = []
     if (typeof m.content === 'string') {
       content = m.content
@@ -474,6 +501,9 @@ function parseMessages(agentId: string, rawMessages: Array<Record<string, unknow
       for (const block of m.content as Array<Record<string, unknown>>) {
         if (block.type === 'text') {
           content += (content ? '\n' : '') + (block.text as string)
+        } else if (block.type === 'thinking') {
+          const t = (block.thinking || block.text || '') as string
+          thinkingText += (thinkingText ? '\n' : '') + t
         } else if (block.type === 'image') {
           // Anthropic format: { type: 'image', source: { type: 'base64', media_type, data } }
           const src = block.source as Record<string, string> | undefined
@@ -495,6 +525,7 @@ function parseMessages(agentId: string, rawMessages: Array<Record<string, unknow
       role,
       visualRole: classifyVisualRole(role, content),
       content: content || (imageUrls.length > 0 ? '[image]' : ''),
+      thinking: thinkingText || undefined,
       timestamp: (m.timestamp as number) || Date.now(),
       agentId,
       attachments: imageUrls.length > 0 ? imageUrls : undefined,

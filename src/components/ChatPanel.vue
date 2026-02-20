@@ -143,11 +143,19 @@ function handleScroll() {
             </div>
 
             <div class="bubble" :class="entry.data.role">
+              <!-- Thinking block (collapsible) -->
+              <details v-if="entry.data.thinking" class="thinking-block" :open="entry.data.isThinking">
+                <summary class="thinking-summary">
+                  <span class="thinking-icon">{{ entry.data.isThinking ? '⟳' : '💭' }}</span>
+                  {{ entry.data.isThinking ? 'Thinking...' : 'Thought process' }}
+                </summary>
+                <div class="thinking-content">{{ entry.data.thinking }}</div>
+              </details>
               <div v-if="entry.data.attachments?.length" class="bubble-attachments">
                 <img v-for="(src, idx) in entry.data.attachments" :key="idx" :src="src" class="bubble-image" alt="attachment" />
               </div>
               <MarkdownContent v-if="entry.data.content && entry.data.content !== '[image]'" :content="entry.data.role === 'user' ? stripInboundMeta(entry.data.content) : entry.data.content" />
-              <div v-if="entry.data.isStreaming" class="streaming-dots">
+              <div v-if="entry.data.isStreaming && !entry.data.isThinking" class="streaming-dots">
                 <span /><span /><span />
               </div>
             </div>
@@ -224,6 +232,46 @@ function handleScroll() {
   flex: 1;
   overflow-y: auto;
   padding: 24px 0;
+}
+
+/* Thinking block */
+.thinking-block {
+  margin-bottom: 8px;
+  border-radius: 6px;
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  font-size: 0.8rem;
+  overflow: hidden;
+}
+.thinking-summary {
+  cursor: pointer;
+  padding: 6px 10px;
+  color: rgba(139, 92, 246, 0.8);
+  font-size: 0.75rem;
+  user-select: none;
+  list-style: none;
+}
+.thinking-summary::-webkit-details-marker { display: none; }
+.thinking-summary::before {
+  content: '▸ ';
+  font-size: 0.7rem;
+}
+details[open] .thinking-summary::before {
+  content: '▾ ';
+}
+.thinking-icon {
+  margin-right: 4px;
+}
+.thinking-content {
+  padding: 8px 10px;
+  border-top: 1px solid rgba(139, 92, 246, 0.1);
+  color: var(--text-muted, #888);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 .load-more-hint {

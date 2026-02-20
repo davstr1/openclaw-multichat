@@ -8,9 +8,11 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
   visualRole?: 'user' | 'assistant' | 'system-notice'
   content: string
+  thinking?: string
   timestamp: number
   agentId: string
   isStreaming?: boolean
+  isThinking?: boolean
   attachments?: string[]
 }
 
