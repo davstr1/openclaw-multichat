@@ -27,9 +27,16 @@ export interface ToolCall {
   agentId: string
 }
 
+export interface NarrationGroup {
+  id: string
+  messages: ChatMessage[]
+  timestamp: number
+}
+
 export type TimelineEntry =
   | { kind: 'message'; data: ChatMessage }
   | { kind: 'tool'; data: ToolCall }
+  | { kind: 'narration'; data: NarrationGroup }
 
 export interface WsMessage {
   type: string

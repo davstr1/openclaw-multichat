@@ -52,11 +52,59 @@ function lastMessagePreview(agentId: string): string {
 
 const activeMessages = computed(() => chatHistories[activeAgentId.value] || [])
 
+// Detect narration/working messages: short assistant messages that are just status updates
+function isNarrationMessage(msg: ChatMessage): boolean {
+  if (msg.role !== 'assistant') return false
+  if (msg.isStreaming) return false
+  const c = msg.content.trim()
+  if (!c || c.length > 200) return false
+  // Narration patterns: starts with "Let me", "Now ", "I'll ", "I need to", "Good", "OK", etc.
+  // and doesn't contain code blocks or links (those are real content)
+  if (c.includes('```') || c.includes('http')) return false
+  // Short messages between tool calls are likely narration
+  const narrationStarts = /^(Let me|Now |I'll |I need |Good|OK|Alright|Perfect|Great|Done|Here's what|Looking at|Checking|Found|Updated|Building|Testing|Clean|Confirmed)/i
+  return narrationStarts.test(c)
+}
+
 const activeTimeline = computed<TimelineEntry[]>(() => {
   const agentId = activeAgentId.value
-  const msgs: TimelineEntry[] = (chatHistories[agentId] || []).map(m => ({ kind: 'message' as const, data: m }))
-  const tools: TimelineEntry[] = Object.values(toolCalls[agentId] || {}).map(t => ({ kind: 'tool' as const, data: t }))
-  return [...msgs, ...tools].sort((a, b) => a.data.timestamp - b.data.timestamp)
+  const allEntries: TimelineEntry[] = [
+    ...(chatHistories[agentId] || []).map(m => ({ kind: 'message' as const, data: m })),
+    ...Object.values(toolCalls[agentId] || {}).map(t => ({ kind: 'tool' as const, data: t })),
+  ].sort((a, b) => a.data.timestamp - b.data.timestamp)
+
+  // Group consecutive narration messages
+  const result: TimelineEntry[] = []
+  let narrationBuffer: ChatMessage[] = []
+
+  function flushNarration() {
+    if (narrationBuffer.length >= 2) {
+      result.push({
+        kind: 'narration',
+        data: {
+          id: `narr_${narrationBuffer[0].id}`,
+          messages: [...narrationBuffer],
+          timestamp: narrationBuffer[0].timestamp,
+        },
+      })
+    } else if (narrationBuffer.length === 1) {
+      // Single narration message — just show as normal
+      result.push({ kind: 'message', data: narrationBuffer[0] })
+    }
+    narrationBuffer = []
+  }
+
+  for (const entry of allEntries) {
+    if (entry.kind === 'message' && isNarrationMessage(entry.data as ChatMessage)) {
+      narrationBuffer.push(entry.data as ChatMessage)
+    } else {
+      flushNarration()
+      result.push(entry)
+    }
+  }
+  flushNarration()
+
+  return result
 })
 const activeAgent = computed(() => agents.find((a) => a.id === activeAgentId.value) || { id: 'main', name: 'Agent' })
 const isConnected = computed(() => gateway?.connection.status === 'connected')

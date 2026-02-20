@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, nextTick, watch, onMounted } from 'vue'
-import type { ChatMessage, TimelineEntry } from '../types'
+import type { ChatMessage, TimelineEntry, NarrationGroup } from '../types'
 import MarkdownContent from './MarkdownContent.vue'
 import ToolCard from './ToolCard.vue'
 import { stripInboundMeta } from '../composables/useStripMeta'
@@ -136,8 +136,28 @@ function handleScroll() {
             </div>
           </div>
 
+          <!-- Narration group (collapsed working steps) -->
+          <div v-else-if="entry.kind === 'narration'" class="message-row assistant">
+            <div class="avatar">
+              <span class="avatar-letter">{{ agentName[0] }}</span>
+            </div>
+            <div class="bubble assistant">
+              <details class="narration-block">
+                <summary class="narration-summary">
+                  <span class="narration-icon">🔧</span>
+                  Working... <span class="narration-count">({{ (entry.data as NarrationGroup).messages.length }} steps)</span>
+                </summary>
+                <div class="narration-steps">
+                  <div v-for="msg in (entry.data as NarrationGroup).messages" :key="msg.id" class="narration-step">
+                    {{ msg.content }}
+                  </div>
+                </div>
+              </details>
+            </div>
+          </div>
+
           <!-- Chat message -->
-          <div v-else class="message-row" :class="entry.data.role">
+          <div v-else class="message-row" :class="(entry.data as ChatMessage).role">
             <div v-if="entry.data.role === 'assistant'" class="avatar">
               <span class="avatar-letter">{{ agentName[0] }}</span>
             </div>
@@ -233,6 +253,49 @@ function handleScroll() {
   overflow-y: auto;
   padding: 24px 0;
 }
+
+/* Narration / Working block */
+.narration-block {
+  margin: 0;
+  border-radius: 6px;
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.12);
+  font-size: 0.8rem;
+  overflow: hidden;
+}
+.narration-summary {
+  cursor: pointer;
+  padding: 6px 10px;
+  color: rgba(245, 158, 11, 0.8);
+  font-size: 0.75rem;
+  user-select: none;
+  list-style: none;
+}
+.narration-summary::-webkit-details-marker { display: none; }
+.narration-summary::before {
+  content: '▸ ';
+  font-size: 0.7rem;
+}
+details[open] .narration-summary::before {
+  content: '▾ ';
+}
+.narration-icon { margin-right: 4px; }
+.narration-count {
+  color: rgba(245, 158, 11, 0.5);
+  font-size: 0.7rem;
+}
+.narration-steps {
+  padding: 6px 10px;
+  border-top: 1px solid rgba(245, 158, 11, 0.08);
+}
+.narration-step {
+  padding: 3px 0;
+  color: var(--text-muted, #888);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.narration-step:last-child { border-bottom: none; }
 
 /* Thinking block */
 .thinking-block {
