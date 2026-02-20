@@ -162,7 +162,7 @@ function handleScroll() {
               <span class="avatar-letter">{{ agentName[0] }}</span>
             </div>
 
-            <div class="bubble" :class="entry.data.role">
+            <div class="bubble" :class="[entry.data.role, { 'bubble-error': entry.data.isError }]">
               <!-- Thinking block (collapsible) -->
               <details v-if="entry.data.thinking" class="thinking-block" :open="entry.data.isThinking">
                 <summary class="thinking-summary">
@@ -455,6 +455,21 @@ details[open] .thinking-summary::before {
   border: 1px solid var(--border-subtle);
   color: var(--text-primary);
   border-bottom-left-radius: 6px;
+}
+
+.bubble-error {
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  background: rgba(239, 68, 68, 0.06) !important;
+}
+.bubble-error::before {
+  content: '⚠️ Error';
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgb(239, 68, 68);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 /* Bubble attachments */

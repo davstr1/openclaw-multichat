@@ -434,9 +434,20 @@ function handleChatEvent(payload: Record<string, unknown>) {
   } else if (state === 'error') {
     const msgs = chatHistories[agentId]
     const last = msgs[msgs.length - 1]
+    const errorMsg = (payload.errorMessage as string) || 'unknown error'
     if (last?.isStreaming) {
       last.isStreaming = false
-      last.content += '\n\n[Error: ' + ((payload.errorMessage as string) || 'unknown') + ']'
+      last.isError = true
+      last.content = last.content ? last.content + '\n\n' + errorMsg : errorMsg
+    } else {
+      msgs.push({
+        id: `err_${agentId}_${Date.now()}`,
+        role: 'assistant',
+        content: errorMsg,
+        timestamp: Date.now(),
+        agentId,
+        isError: true,
+      })
     }
   }
 }

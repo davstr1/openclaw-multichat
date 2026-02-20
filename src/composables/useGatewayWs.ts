@@ -142,7 +142,7 @@ export function useGatewayWs(options: GatewayWsOptions) {
           signedAt: signedAtMs,
           nonce,
         },
-        caps: [],
+        caps: ['tool-events'],
         auth: {
           token: options.token,
         },

@@ -13,6 +13,7 @@ export interface ChatMessage {
   agentId: string
   isStreaming?: boolean
   isThinking?: boolean
+  isError?: boolean
   attachments?: string[]
 }
 

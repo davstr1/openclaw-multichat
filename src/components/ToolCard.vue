@@ -16,26 +16,38 @@ const statusLabel = computed(() => {
 
 const isRunning = computed(() => props.tool.phase !== 'result')
 
-const displayName = computed(() => {
+const toolMeta = computed(() => {
   const name = props.tool.name
-  // Friendly labels for common tools
-  const labels: Record<string, string> = {
-    Read: 'Read file',
-    Edit: 'Edit file',
-    Write: 'Write file',
-    exec: 'Run command',
-    web_search: 'Web search',
-    web_fetch: 'Fetch URL',
-    browser: 'Browser',
-    memory_search: 'Memory search',
-    memory_get: 'Memory read',
-    image: 'Analyze image',
-    message: 'Send message',
-    cron: 'Cron job',
-    tts: 'Text to speech',
+  const meta: Record<string, { label: string; icon: string; color?: string }> = {
+    Read: { label: 'Read file', icon: '📂' },
+    Edit: { label: 'Edit file', icon: '✏️' },
+    Write: { label: 'Write file', icon: '📝' },
+    exec: { label: 'Run command', icon: '⚡' },
+    web_search: { label: 'Web search', icon: '🔍' },
+    web_fetch: { label: 'Fetch URL', icon: '🌐' },
+    browser: { label: 'Browser', icon: '🖥️' },
+    memory_search: { label: 'Memory search', icon: '🧠' },
+    memory_get: { label: 'Memory read', icon: '🧠' },
+    image: { label: 'Analyze image', icon: '🖼️' },
+    message: { label: 'Send message', icon: '💬' },
+    cron: { label: 'Cron job', icon: '⏰' },
+    tts: { label: 'Text to speech', icon: '🔊' },
+    sessions_spawn: { label: 'Spawn sub-agent', icon: '🤖', color: 'orange' },
+    sessions_send: { label: 'Message sub-agent', icon: '🤖', color: 'orange' },
+    sessions_list: { label: 'List sessions', icon: '📋' },
+    sessions_history: { label: 'Session history', icon: '📜' },
+    subagents: { label: 'Sub-agents', icon: '🤖', color: 'orange' },
+    session_status: { label: 'Session status', icon: '📊' },
+    canvas: { label: 'Canvas', icon: '🎨' },
+    nodes: { label: 'Node control', icon: '📱' },
+    agents_list: { label: 'List agents', icon: '👥' },
   }
-  return labels[name] || name
+  return meta[name] || { label: name, icon: '⚙️' }
 })
+
+const displayName = computed(() => toolMeta.value.label)
+const toolIcon = computed(() => toolMeta.value.icon)
+const toolColor = computed(() => toolMeta.value.color || '')
 
 const summary = computed(() => {
   const args = props.tool.args as Record<string, unknown> | undefined
@@ -56,6 +68,15 @@ const summary = computed(() => {
   }
   if (name === 'memory_search') {
     return (args.query || '') as string
+  }
+  if (name === 'sessions_spawn') {
+    return (args.task || args.label || '') as string
+  }
+  if (name === 'sessions_send') {
+    return ((args.message || '') as string).slice(0, 80)
+  }
+  if (name === 'message') {
+    return ((args.message || '') as string).slice(0, 80)
   }
 
   // Generic: show first string arg
@@ -81,13 +102,14 @@ const isLong = computed(() => {
 </script>
 
 <template>
-  <div class="tool-card" :class="{ running: isRunning }">
+  <div class="tool-card" :class="{ running: isRunning, [toolColor]: !!toolColor }">
     <div class="tool-header" @click="hasOutput ? expanded = !expanded : null">
-      <div class="tool-icon">
-        <svg v-if="isRunning" class="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <span class="tool-emoji">{{ toolIcon }}</span>
+      <div class="tool-status-icon">
+        <svg v-if="isRunning" class="spinner" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
         </svg>
-        <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
           <polyline points="20 6 9 17 4 12" />
         </svg>
       </div>
@@ -116,6 +138,13 @@ const isLong = computed(() => {
 .tool-card.running {
   border-color: rgba(99, 102, 241, 0.3);
 }
+.tool-card.orange {
+  border-color: rgba(245, 158, 11, 0.25);
+  background: rgba(245, 158, 11, 0.05);
+}
+.tool-card.orange.running {
+  border-color: rgba(245, 158, 11, 0.4);
+}
 
 .tool-header {
   display: flex;
@@ -125,14 +154,23 @@ const isLong = computed(() => {
   user-select: none;
 }
 
-.tool-icon {
+.tool-emoji {
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.tool-status-icon {
   flex-shrink: 0;
   color: var(--text-muted);
   display: flex;
   align-items: center;
 }
-.tool-card.running .tool-icon {
+.tool-card.running .tool-status-icon {
   color: var(--accent);
+}
+.tool-card.orange.running .tool-status-icon {
+  color: rgb(245, 158, 11);
 }
 
 .spinner {
