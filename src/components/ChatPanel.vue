@@ -11,12 +11,14 @@ const props = defineProps<{
   agentName: string
   isConnected: boolean
   isStreaming: boolean
+  hasMoreHistory: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'send', payload: { text: string; attachments?: Array<{ dataUrl: string; mimeType: string }> }): void
   (e: 'abort'): void
   (e: 'newSession'): void
+  (e: 'loadOlder'): void
 }>()
 
 const input = ref('')
@@ -85,12 +87,33 @@ function scrollToBottom() {
 watch(() => props.timeline.length, scrollToBottom)
 watch(() => props.messages[props.messages.length - 1]?.content, scrollToBottom)
 onMounted(scrollToBottom)
+
+const loadingOlder = ref(false)
+
+function handleScroll() {
+  const el = messagesContainer.value
+  if (!el || !props.hasMoreHistory || loadingOlder.value) return
+  if (el.scrollTop < 80) {
+    loadingOlder.value = true
+    const prevHeight = el.scrollHeight
+    emit('loadOlder')
+    // Preserve scroll position after prepending
+    nextTick(() => {
+      const newHeight = el.scrollHeight
+      el.scrollTop = newHeight - prevHeight
+      loadingOlder.value = false
+    })
+  }
+}
 </script>
 
 <template>
   <div class="chat-layout">
     <!-- Messages -->
-    <div ref="messagesContainer" class="messages-scroll">
+    <div ref="messagesContainer" class="messages-scroll" @scroll="handleScroll">
+      <div v-if="hasMoreHistory" class="load-more-hint">
+        <span class="load-more-text">↑ Scroll up for older messages</span>
+      </div>
       <div v-if="messages.length === 0" class="empty-state">
         <div class="empty-state-inner">
           <p class="empty-label">{{ agentName }}</p>
@@ -201,6 +224,17 @@ onMounted(scrollToBottom)
   flex: 1;
   overflow-y: auto;
   padding: 24px 0;
+}
+
+.load-more-hint {
+  text-align: center;
+  padding: 12px 0 8px;
+  opacity: 0.5;
+  font-size: 0.75rem;
+}
+
+.load-more-text {
+  color: var(--text-muted, #888);
 }
 
 .empty-state {

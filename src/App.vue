@@ -425,8 +425,11 @@ async function handleConnect(url: string, token: string) {
   gateway.connect()
 }
 
-const HISTORY_PAGE_SIZE = 30
+const HISTORY_FETCH_SIZE = 200  // Fetch big batch from gateway
+const HISTORY_PAGE_SIZE = 30     // Show this many at a time
 const hasMoreHistory = reactive<Record<string, boolean>>({})
+// Full fetched history buffer (all messages from gateway, not yet displayed)
+const fullHistoryBuffer = reactive<Record<string, ChatMessage[]>>({})
 
 const SYSTEM_PATTERNS = [
   /^System:\s*\[/,
@@ -501,10 +504,20 @@ async function loadHistory(agentId: string) {
   if (!gateway) return
   const sk = sessionKeyFor(agentId)
   try {
-    const result = await gateway.chatHistory(sk, HISTORY_PAGE_SIZE)
+    const result = await gateway.chatHistory(sk, HISTORY_FETCH_SIZE)
     if (result && Array.isArray(result.messages)) {
-      chatHistories[agentId] = parseMessages(agentId, result.messages as Array<Record<string, unknown>>, 'hist')
-      hasMoreHistory[agentId] = (result.messages as unknown[]).length >= HISTORY_PAGE_SIZE
+      const allMessages = parseMessages(agentId, result.messages as Array<Record<string, unknown>>, 'hist')
+      // Store full buffer, display only last page
+      if (allMessages.length > HISTORY_PAGE_SIZE) {
+        const displayStart = allMessages.length - HISTORY_PAGE_SIZE
+        fullHistoryBuffer[agentId] = allMessages.slice(0, displayStart)
+        chatHistories[agentId] = allMessages.slice(displayStart)
+        hasMoreHistory[agentId] = true
+      } else {
+        fullHistoryBuffer[agentId] = []
+        chatHistories[agentId] = allMessages
+        hasMoreHistory[agentId] = false
+      }
       const msgs = chatHistories[agentId]
       if (msgs.length > 0) {
         lastActivity[agentId] = msgs[msgs.length - 1].timestamp
@@ -513,6 +526,21 @@ async function loadHistory(agentId: string) {
   } catch (e) {
     console.warn(`[App] Failed to load history for ${agentId}:`, e)
   }
+}
+
+function loadOlderMessages(agentId: string) {
+  const buffer = fullHistoryBuffer[agentId]
+  if (!buffer || buffer.length === 0) {
+    hasMoreHistory[agentId] = false
+    return
+  }
+  // Take the next page from the buffer
+  const pageStart = Math.max(0, buffer.length - HISTORY_PAGE_SIZE)
+  const page = buffer.slice(pageStart)
+  fullHistoryBuffer[agentId] = buffer.slice(0, pageStart)
+  // Prepend to displayed messages
+  chatHistories[agentId] = [...page, ...chatHistories[agentId]]
+  hasMoreHistory[agentId] = pageStart > 0
 }
 
 async function loadAgents() {
@@ -663,9 +691,11 @@ onMounted(() => {
             :agent-name="activeAgent.name"
             :is-connected="isConnected"
             :is-streaming="isStreaming"
+            :has-more-history="!!hasMoreHistory[activeAgentId]"
             @send="handleSend"
             @abort="handleAbort"
             @new-session="handleNewSession"
+            @load-older="loadOlderMessages(activeAgentId)"
           />
         </main>
       </div>
